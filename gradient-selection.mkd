@@ -1,0 +1,52 @@
+<!-- Title: Gradient selection -->
+
+We've heard a few comments/complaints about how the gradient selection has been removed in Beta 2, either as an option or as the default selection color.  Since it's come up so many times, I figured you could all use an explanation as to why we did it (effectively, [scrolling performance](#scrolling) and [UX](#ux)).
+
+First off, for the people who do miss gradient selection, I wrote an extension that adds it back (when you have the rich-client experience enabled).  You can find it here, [on vsgallery][vsgallery].  Also, the source is available [on github][github].
+
+  [vsgallery]:http://NOTREADYYET.com
+  [github]:http://github.com/NoahRic/GradientSelection
+
+<a id="scrolling" />
+Scrolling
+---------
+
+One of the common complaints from Beta 1 and, to a much more significant degree, from the CTP, was that scrolling speed was a big problem, especially under remote desktop and if you were running a VM; essentially, any combination of software rendering or the limited bandwidth of a remote session was killing the editor's ability to scroll.
+
+Part of the reason why we had this issue was because of the way the gradient selection works - whenever you increase the height of the selection with a vertical gradient (as was the default), the editor needed to repaint the *entire* selection.  Similarly, whenever you increase the width of a selection with a horizontal gradient, the selection would need repainted.  In the worst case, then, any change in selection size requires redrawing the entire selection.
+
+If you changed the VS settings to not automatically detect rich-client experience, so that the gradient was enabled over remote desktop or in software rendering mode, you'd get an idea for how painful this was.  As the selection got larger, the editor would redraw more and more on each change.  This was *especially* bad if the selection was partially off the screen, as drawing the gradient properly requires that the lines off the screen also went through the layout pass, so that we could know their height (usually, lines that aren't visible don't participate in layout).
+
+Smarter redraw
+--------------
+
+With a solid color selection, on the other hand, you can make certain assumptions about the selection.  The most important of these is that if you add or remove areas to the selection, you only need to redraw those portions.  As you increase the size of the selection, you only need to redraw the new areas that are being selected.  Effectively, the cost of drawing the selection in this case is relative to the change in selection size, instead of relative to the absolute selection size.
+
+And if part of the selection is off the screen, you can just ignore them completely &mdash; no need to even think about those lines until they are scrolled back into view.
+
+So the solid color selection logic can be much smarter about how it operates.
+
+You can still actually have a non-solid color brush when you make these assumptions, but the brush still has to be drawn *per line*.  If you have a vertical gradient in this case, the gradient will appear to start/stop on each line.  So, for almost all purposes, this really only looks good with a solid color brush with no border.
+
+<a id="ux" />
+UX
+--
+
+The other reason, which I know much less about, was UX.  The basic explanation, as it filtered down to me, was the push to make things appear visibly simpler in the UI.  Most people saw the gradient selection as pretty but without utility, which isn't a redeeming enough quality to warrant keeping it around.
+
+Of course, the people who miss it have given good reasons for wanting it around.  The best reason I've heard so far is that the gradient gives you visual clues about where you in a file.  I can certainly see that, though the value of that seems to degrade when the selection is small (1-3 lines) and very large (larger than the screen).  However, I could see an argument for while it would still be useful for a giant selection (you can tell if you are underneath, above, or right at the midline of the selection).
+
+Extensibility
+-------------
+
+So the real answer here is the answer I tend to give to anyone &mdash; **extensibility**.
+
+While we did remove the gradient selection, we didn't remove the code that knows how to draw a selection with an arbitrary brush and pen (for the border).  As such, getting the gradient selection back requires just a [little bit of code][code].
+  [code]:http://github.com/NoahRic/GradientSelection/blob/master/ViewCreationListener.cs
+
+Here's the pertinent part:
+<script src="http://gist.github.com/220306.js"></script>
+
+There's a bit more to the extension than that; notably, if you supply a gradient and the editor is *not* in rich-client mode, it'll draw the gradient *per-line* instead of over the entire selection.
+
+The other thing that may not be immediately apparent from the code is that you could change this per language (per content type), or even (if you wanted) based upon some text in the file (like vim or emacs mode lines).  I'm not sure how desirable that is, but it may be interesting for your python files to use a different selection color than the rest of your files.  Who knows?

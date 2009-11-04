@@ -52,7 +52,7 @@ In Beta 2, that's now changed, and you can export a `MarkerFormatDefinition` tha
 
 And then create a `TextMarkerTag` with the name "mymarker", and you are all set.  Note that you'll probably want some transparency on your fill brush, since the selection is drawn *underneath* markers.
 
-<a id="viewtagger" />
+<a id="viewtagger"></a>
 ### 5 - View tagger provider (`IViewTaggerProvider`)
 
 In Beta 1, you exported your taggers with an `ITaggerProvider`.  In Beta 2, there is an additional interface you can use called `IViewTaggerProvider`, which is passed both a buffer and a view in its `CreateTagger` method.  There are a few cases where you may want to use this:

@@ -11,7 +11,7 @@ In Beta 2, mouse and key processor providers take the following metadata; note t
   1. `Export`, like all components
   1. `ContentType` 
   1. `Name` and `Order`, so that you can position yourself before or after other known handlers.  This is kinda important in cases where you want to preempt whatever normally happens in a certain event.
-  1. `TextViewRoles`
+  1. `TextViewRole`
 
 Also, somewhat tangentially, the `ContentType` attribute now applies to any buffer in a view's graph - that's just a fancy way of saying that if you have something like an asp.net page that has embedded C#, your key or mouse processors will get loaded if they have `[ContentType("CSharp")]`.
 

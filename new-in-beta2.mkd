@@ -1,0 +1,88 @@
+<!-- What's new for extenders in Beta 2? -->
+
+If you are reading this, I'm sure there is a decent chance that you've either already used Visual Studio 2010 Beta 2 or at least read about some of the new features.  For those of you interested in writing extensions for VS, I wanted to share a couple of updates around editor extensibility, particularly for people who wrote extensions in Beta 1 and want to upgrade to Beta 2.
+
+### 1 - Bye bye, `IEnvironment`
+If you wrote any code that had classifiers or taggers or various other extensions that take an `IEnvironment` parameter, you'll be deleting those parameters in Beta 2. `IEnvironment` had a few historical reasons for being there (back when the editor was a part of a different project and not in Visual Studio yet), but it wasn't really serving a purpose anymore.  In Beta 1, all it really did was confuse people and make you type an extra few characters and/or add an fxcop suppression since you weren't using it. Anyways, small change, but a simplifying one.  (If you are curious about the one place that did use it for taggers, see [#5 below](#viewtagger)).
+
+### 2 - Mouse and key processors get more metadata
+In Beta 2, mouse and key processor providers take the following metadata; note that some of these were required for mouse *or* key processors, but now the list applies to both:
+
+  1. `Export`, like all components
+  1. `ContentType` 
+  1. `Name` and `Order`, so that you can position yourself before or after other known handlers.  This is kinda important in cases where you want to preempt whatever normally happens in a certain event.
+  1. `TextViewRoles`
+
+Also, somewhat tangentially, the `ContentType` attribute now applies to any buffer in a view's graph - that's just a fancy way of saying that if you have something like an asp.net page that has embedded C#, your key or mouse processors will get loaded if they have `[ContentType("CSharp")]`.
+
+These fixes were necessary to write the [triple click extension][tripleclick] ([github][tcgithub] and [vsgallery][tcvsgallery]).  Without the ordering, I couldn't put the mouse handler early enough to work correctly.  Also, there were a few bugs in some of the default mouse handlers that have since been fixed.
+
+Note that, unfortunately, the general guidance is to *not* use keyboard providers.  The VS command system and how components like the editor plug in don't play very well with normal WPF keyboard input, so the short story is that you'll only get keyboard events for key combinations that aren't already bound to a command.  Which leads me to the next new thing...
+
+### 3 - Listening for the creation of `IVsTextView` adapters (`IVsTextViewCreationListener`)
+
+We added this as an extension to the VS integration piece of the editor to allow people to listen for the creation of `IVsTextView` (which is what the underlying `IWpfTextView`/`ITextView` are wrapped in for the sake of people who still use the existing VS API).  It's effectively identical to `IWpfTextViewCreationListener`, except that you get an `IVsTextView` instead of an `IWpfTextView` when called.
+
+*A quick note - if you want to use this extension, you'll need to add a reference to `Microsoft.VisualStudio.Editor.dll`.  It's in the SDK, so that's not a problem, but it isn't a part of any of the standard editor project templates.*
+
+The biggest reason we introduced this was for extensions that want to add command handlers to the editor.  You could do this in the past, somewhat painfully, by doing the following:
+
+  1. Write an `IWpfTextViewCreationListener`
+  1. The ugly step - listen for the `GotAggregateFocus` event on the text view and do the remaining steps in that handler.  If you skipped this step, the eventually attempt at getting the `IVsTextView` would fail, since the two objects weren't fully hooked up yet.
+  1. With an `[Import]`ed `IVsEditorAdaptersFactoryService`, call `GetViewAdapter` to get the `IVsTextView`.
+  1. Call `IVsTextView.AddCommandFilter`
+  1. ...and don't forget to unsubscribe from `GotAggregateFocus` or use a flag so that you only listen to the first time the event is raised.
+
+With the new event, you just need to:
+
+  1. Write an `IVsTextViewCreationListener`
+  1. Call `IVsTextView.AddCommandFilter`
+
+If you do want to get the associated `IWpfTextView` for the `IVsTextView` adapter, you can do the opposite of #3 above (using `GetWpfTextView`); the upside, relative to the above list, is that you don't need to worry about initialization being finished.  When you get the call in your creation listener, initialization has completed to the point that `GetWpfTextView` will always succeed.
+
+Because command filters are still not entirely obvious to get correct, I'm working on a template for doing this for you.  More in general, I'm working on a set of "New Item" templates for the editor, so that you can add new components (or at least a skeleton of a new component) with a couple clicks in an existing project.  I have finished these yet, but you can see the work in progress on [CommandFilter.cs][commandfilter].
+
+### 4 - Custom text marker visual definitions
+
+One of the other things missing in beta 1 was the ability to set the visualizations for text markers (the markers you can create with an `ITagger<TextMarkerTag>`).  There were some built-in marker types, but they were kinda limited.
+
+In Beta 2, that's now changed, and you can export a `MarkerFormatDefinition` that looks something like this:
+
+<script src="http://gist.github.com/222177.js"></script>
+
+And then create a `TextMarkerTag` with the name "mymarker", and you are all set.  Note that you'll probably want some transparency on your fill brush, since the selection is drawn *underneath* markers.
+
+<a id="viewtagger" />
+### 5 - View tagger provider (`IViewTaggerProvider`)
+
+In Beta 1, you exported your taggers with an `ITaggerProvider`.  In Beta 2, there is an additional interface you can use called `IViewTaggerProvider`, which is passed both a buffer and a view in its `CreateTagger` method.  There are a few cases where you may want to use this:
+
+ 1. *Your tagger needs information specific to a certain view* &ndash; this may be the case if you are writing an extension that wants to, say, highlight all references in a view that match the reference under the caret.  In this case, you need to know the caret position in the view to produce your results.
+ 1. *Your tagger wants to produce different results depending on the view* &ndash; this is basically the same as #1, but it may help to also think of it in this way.  With the highlight references example again, it's possible to have two different views over the same buffer (split window, for example, or the code definition window), where you want each view to show different results for the highlighted references, even though they are displaying the content of the same text buffer.
+ 1. *Your tagger wants to consume other tag information* &ndash; this is the case I mentioned [earlier][beta2updates] about deserving its own blog article (which I will still get to, promise).  Basically, if you have a tagger for type `T` that consumes, say, classification tags, you want to avoid accidentally including a classifier that is trying to consume tags of type `T`, or else you'll end up with an ugly recursive loop when trying to get tags.  You can sidestep this by providing your tagger with an `IViewTaggerProvider` and consuming taggers (or classifiers) you get from an `IBufferTagAggregatorFactoryService` (or `IClassifierAggregatorService.GetClassifier` that takes a buffer).  That way, you are guaranteed that any taggers/classifiers you may consume can't accidentally consume your extension as well.
+
+The downside to #3 is that it is still hairy for other components to safely consume your tagger (that they are using via `IViewTagAggregatorFactoryService`) to produce tags; if two view-level taggers are each consuming other view-level taggers, you get the same problem as before.  As such, any component you make that does this (such as Tomas Restrepo's [Keyword Classifier][keywordclassifier]), should be created with the understanding that it can't be safely consumed.  For any extensions you write, you should probably stear clear of creating view-level taggers that consume a view-level `ITagAggregator<ClassificationTag>`, for example.  In general, it's probably safest to follow this rule:
+
+**Never create a tag aggregator using an `IViewTagAggregatorFactoryService` inside a tagger provided with an `IViewTaggerProvider`.**
+
+
+### ...and more
+These are just the biggest ones I can think of off the top of my head.  I'm sure someone will point out things I've missed, which I'll likely cover in a new article.
+
+Also, in case you missed them throughout the text, here are the various urls I've linked to:
+
+* Triple click extension [on github][tcgithub] and [on vsgallery][tcvsgallery]
+* [Earlier article on updates to my extensions for Beta 2][beta2updates]
+* [CommandFilter.cs skeleton][commandfilter], for providing a command filter in the editor.
+* Tomas Restrepo's [Keyword Classifier extension, on github][keywordclassifier]
+* Also, Tomas's blog, [Winterdom][], which includes posts about the extensions he wrote, as well as being a generally good read.
+
+As always, comments welcome.
+
+ [tripleclick]:http://blogs.msdn.com/noahric/archive/2009/10/19/beta-2.aspx
+ [tcgithub]:http://github.com/NoahRic/TripleClick
+ [tcvsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/2bbdc70c-32f7-4b69-8cff-d8190cae0cc7
+ [beta2updates]:http://blogs.msdn.com/noahric/archive/2009/10/20/updated-extensions-for-beta-2.aspx
+ [commandfilter]:http://github.com/NoahRic/EditorItemTemplates/blob/master/CommandFilter.cs
+ [keywordclassifier]:http://github.com/tomasr/KeywordClassifier
+ [Winterdom]:http://winterdom.com/

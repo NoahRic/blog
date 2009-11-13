@@ -1,50 +1,81 @@
 <!-- Markdown mode -->
 
+<style type="text/css">
+    body { width: 600px }
+</style>
+
 For awhile I've been searching for a better workflow for writing my blog.  Using the community server interface online interface is pretty awful, though even *good* online interfaces aren't that great.  You can't really overestimate the value of using the editor you are familiar with for writing more than just, well, source code.  It's part of the reason a lot of the emacs users I know love emacs; you can use it for everything from a code editor to a mail reader to an organization tool (and let it be know, I heart org mode very much).
 
-I used Windows Live Writer for a little while, but my primary home machine is a macbook running OS X, and I'm not a huge fan of booting my win7 VM just to run that app.  Besides that, it's the same problem as above; as an editor, it's like any other rich editing experience, but I wouldn't really describe it as a "power" editing experience.  That and I'm not a huge fan of the "rich" editing experience anyways.
+Most blogging interfaces make me a sad panda
+----------------------------------
+
+I used Windows Live Writer for a little while, but my primary home machine is a macbook running OS X, and I'm not a huge fan of booting my win7 VM just to run that app.  Besides that, it's the same problem as above; as an editor, it's like any other rich editing experience, but I wouldn't really describe it as a "power" editing experience.  That and I'm not a huge fan of the "rich" editing experience anyways; I was always one of *those* guys that preferred to write HTML by hand instead of using Dreamweaver/Frontpage/whatever.
 
 I went to [muse][] mode for awhile, which was pretty good, but I'm not primarily an emacs user, so it always takes me a little while to get used to it again.  Also, since I only use emacs for org mode (and muse mode at the time), I'd never really feel proficient at it to any appreciable degree.
 
-So I tried out a few mac blog authoring apps.  I ended up buying one ([Blogo][]) to try it out some more; there were some issues involving the metaweblog support in community server 2.0 which they then fixed up, but I ended up dropping it a bit later.  It's a pretty slick product, but I dropped it after a somewhat hard-to-forgive bug.  When switching to the rich-editing mode from the tag editing mode, it "cleaned" up my code by deleting about half of what I had written and then destroyed the undo history, so I couldn't get back any of it.  Also, the save/drafts model for many of these blog editing apps is kinda unclear, which makes document history a bit more complicated.
+So I tried out a few mac blog authoring apps.  I ended up buying one ([Blogo][]) to try it out some more; there were some issues involving the [MetaWeblog][] support in community server 2.0 which they then fixed up, but I ended up dropping it a bit later.  It's a pretty slick product, but I couldn't keep using it after a somewhat hard-to-forgive design decision.  When switching to the rich-editing mode from the source editing mode, it "cleaned" up my code by deleting about half of what I had written.  I suppose that is fine and expected in crappy scenarios (they even pop up a scary warning "oh noes, I may delete everything!"), but then I realized that switching back and forth between rich-edit and source-edit mode  **cleared the undo history**, so I couldn't retrieve any of the code it has just deleted (which was more than half of what I had written).  This is complicated by the save/drafts model for many of these blog editing apps being kinda unclear, which makes document history a bit more complicated.
 
 I decided to try something else, then.  Instead of trying to adapt to a new tool, why not try to adapt my existing tools to this problem?
 
-When I'm not using VS, I'm using Vim.  Also, for source control I use git/github.  One of the many cool little things about github is that any file you use that uses [Markdown][] syntax is rendered to HTML on their webpage, and any file named README (optionally with a markdown extension) is displayed when looking at a folder on github.  Because of this, I've been familiarizing myself more and more with Markdown, and have grown to like it.
+If the mountain won't come...
+-----------------------------
 
-In a lot of ways, it's like any other number of wiki-esque syntaxes; certain elements are translated into html; something like \*foobar\* is translated into *foobar*.  You can read up on the syntax [here][markdown-syntax], if you are curious.  Muse is kinda the same, although emacs does a bit more to hide the extra characters, which I actually don't like.  Call me strange, but as long as the markup doesn't really get in the way, then I'd rather see it than not.
+On my Macbook at home, I generally use Vim for my quick editing needs.  For source control on my Mac and for the various projects I've shared out, I use git/github.  One of the many cool little things about github is that any file you use that uses [Markdown][] syntax is rendered to HTML on their webpage, and any file named README (optionally with a markdown extension) is displayed when looking at a folder on github.  Because of this, I've been familiarizing myself more and more with Markdown, and have grown to like it.  It doesn't hurt that the default CSS for rendered Markdown on github is also really pretty.
 
-Also, markdown has some pretty cool features around tagging links in the file and then describing the URLs later on, and I find the syntax much easier to remember (with the exception of === and ---; I can never remember which is which). 
+In a lot of ways, it's like any other number of wiki-esque syntaxes; certain elements are translated into HTML; something like \*foobar\* is translated into *foobar*.  You can read up on the syntax [here][markdown-syntax], if you are curious.  Muse is kinda the same, although emacs does a bit more to hide the extra characters, which I actually don't like.  Call me strange, but as long as the markup doesn't really get in the way, then I'd rather see it than not.
 
-Since the Vim community is pretty awesome at having some answer to every problem, it didn't take me long to find a markdown mode for Vim (there's a [fork][Vim-markdown] of it on my github page, where I've collected the various additions that other githubbers have made).  It's come in handy for writing the README files that I use, so I thought, "why not just use this for my blog?"
+Also, markdown has some pretty cool features around defining links in the file and then providing the URLs later on, and I find the syntax much easier to remember (with the exception of === and ---; I can never remember which is which).
+
+Since the Vim community is pretty awesome at having some answer to every problem, it didn't take me long to find a markdown mode for Vim (there's a [fork][Vim-markdown] of it on my github page, where I've collected the various additions that other githubbers have made).  It's come in handy for writing the README files that I use, where I discovered I could throw together a decent looking README pretty quickly, and loved that it was versioned along with everything else in the reposity.  See where this is going?
+
+If Markdown is so useful for writing these little READMEs, why not use it for my blog?
+
+My current blog workflow
+------------------------
 
 Maybe it sounds strange to approach the problem like this, but I get to combine existing tools in the following ways:
+
   1. An editor I use (**Vim**) &ndash; I'm proficient, so I don't waste a lot of time on the act of editing.
   1. A syntax I'm familiar with (**markdown**) &ndash; also, the syntax doesn't add much overhead in the way of markup, so I'm not wasting time on that.
   1. **markdown mode for Vim**, so things are easier to keep track of visually (and syntax highlighting offers a good sort of error checking; as long as markdown mode follows the Markdown implementation closely enough, I can tell I wrote things correctly by seeing the correct colors and text effects).
+  1. Some tiny **vim scripts** I've written so that I can hit `,m` and see the current content of what I'm writing in the browser.
   1. A storage system I'm used to (regular ol' **file system**) &ndash; no worrying about where the draft is stored.  No worrying about where it is backed up to (all my documents are backed up from this machine).
-  1. Version control plus sharing (**git** and **github**) &ndash; if you've never tried git for anything other than local version control, you really should.  Added to that, it is really easy to get github set up, so know I can use github to [store my articles][articles-github], *including [this very article][this-article]*!
+  1. Version control (**git** and **github**), to serve as a backup, versioning, and sharing mechanism &ndash; if you've never tried git for anything other than local version control, you really should.  Added to that, it is really easy to get github set up, so now I can use github to [store my articles][articles-github], *including [this very article][this-article]*!
 
-I also figured this would be a good opportunity to adapt this a bit; Vim isn't the *only* editor I use, of course.
+It took me a little while to get things all set up correctly, but now that I've done it, I'm pretty efficient and happy with my blog setup.  Well, mostly.
 
-Since this will be a slightly more involved scenario than most of my other published extensions, I figured it may be interesting to the rest of the world to see how to do something like this (integrate a language).
+There are downsides to the current approach:
 
-I imagine that there will be a couple parts to this, looking at my current workflow, in order of likeliness that I'll get it figured out:
+  * It took awhile to get this all set up, and it is pretty ad-hoc; scripts need to be in just the right place.  It's all very nice an Unix like (small tools performing one job well), but it would be a bit of a pain to get it set up again.
+  * If I want to share this setup with other people that aren't using Mac or Linux, they have to also be using Vim, which doesn't come by default on Windows; they'll need perl, which also requires setup; I'll need to rework some of the scripts to work on Windows; and they'll need to figure out the best way to get/update markdown mode for syntax highlighting
+  * Most people I know don't use Vim, surprisingly enough.  There *is* an IDE they all happen to use, of course, which just so happens to be extensible.
+
+My next project: Markdown mode for Visual Studio
+-------------------------------
+
+So, I figure this is a good opportunity to kill a few, maybe a flock of birds with a few stones, maybe a catapult.  This is a pretty good opportunity for me to develop and share a larger example than I usually am writing; instead of being a single little component, I'm going to be writing support for a language, with various supporting features.  Markdown certainly isn't anywhere near as complicated as, say, `C#`, so I can sidestep most of the language-y issues and concentrate on just the editor integration pieces.
+
+I imagine that there will be a couple disparate parts to this, studying my current workflow.  Here's a list of my ideas, in order of likeliness that I'll get it figured out before getting bored or busy with other things (like my new Xbox 360):
 
   * Syntax coloring (the obvious one); things like bold, italics, links, pre blocks and code blocks, etc.
   * Turn URLs into clickable hyperlinks &ndash; this is pretty easy to do with the new URL tagging support in the editor.
   * Some parts of intellisense &ndash; I'm thinking of doing smart tags for links (like turning what looks like a url into a correct markup link), completion for things like link definitions, and quick info for image references (if I don't do anything cooler for images)
   * Inline images of some sort &ndash; this somewhat violates the principle of adding/removing things other than markup, so I'm not sure if I'll do this or not.  It's certainly possible to do and not that difficult, but using quick info for this may be a sufficiently useful feature without getting into the business
+  * A tool window for showing the current output (as a webpage) of the buffer I'm editing, updating live while I'm editing it.  Alternatively, this may be just another document or a margin, depending on where I end up.  I'm not very good at visual sctuff, so it'll probably be as simple as it can be and still get the job done.
   * Syntax support for regular html &ndash; Markdown lets you use intersperse regular html into your Markdown files, so it would be nice to get these to be correctly syntax highlighted.  This may actually be really simple (just using a `ContentType` that derives from html), but if it isn't, it isn't high on my list, mostly because I don't tend to use it for anything other than anchor tags.
-  * Spell checking support &ndash; a couple people have built samples that do spell checking, so that would be nice to add
+  * Spell checking support &ndash; a couple people have built samples that do spell checking, so that would be nice to add, especially since I'm writing prose.
   * Syntax support for code blocks &ndash; this would be kinda cool, though may be of limited utility since most of the code blocks I embed directly into my posts are very tiny, at most a few words.  The larger blocks I tend to put somewhere like <http://gist.github.com>, so that they can be versioned and referenced to as an independent entity.
 
-In any event, expect to see more articles as I progress.  Also, if you have anything specific you want to see other than what I've highlighted above, call it out in the comments.
+In any event, I'm planning to write a series of articles about each of these features.  Also, if you have anything specific you want to see other than what I've highlighted above, call it out in the comments.
 
-I'd also like to call out a thanks to John Gruber, the author of Markdown (the language and the tool that converts markdown to html), for giving me permission to use the name in reference to this extension.
+Thanks, John!
+-------------
 
-  [muse]:ttp://mwolson.org/projects/EmacsMuse.html
+I'd also like to call out a thanks to John Gruber, the author of Markdown (the language and the tool that converts markdown to html), for giving me permission to use the name in reference to this extension.  As I said before, I'm a pretty big fan of Markdown, and I think the philosophy behind it is spot on; I find Markdown is both simple/powerful and *aesthetically pleasing* to read, which I never would have imagined, having used many other wiki-like syntaxes in the past.  So, thanks John!
+
+  [muse]:http://mwolson.org/projects/EmacsMuse.html
   [Blogo]:http://www.drinkbrainjuice.com/blogo
+  [MetaWeblog]:http://www.xmlrpc.com/metaWeblogApi
   [Markdown]:http://daringfireball.net/projects/markdown
   [markdown-syntax]:http://daringfireball.net/projects/markdown/syntax
   [Vim-markdown]:http://github.com/NoahRic/Vim-markdown

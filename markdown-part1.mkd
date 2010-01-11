@@ -1,8 +1,4 @@
-<!-- Markdown mode -->
-
-<style type="text/css">
-    body { width: 600px }
-</style>
+<!-- Markdown! -->
 
 For awhile I've been searching for a better workflow for writing my blog.  Using the community server interface online interface is pretty awful, though even *good* online interfaces aren't that great.  You can't really overestimate the value of using the editor you are familiar with for writing more than just, well, source code.  It's part of the reason a lot of the emacs users I know love emacs; you can use it for everything from a code editor to a mail reader to an organization tool (and let it be know, I heart org mode very much).
 
@@ -13,7 +9,7 @@ I used Windows Live Writer for a little while, but my primary home machine is a 
 
 I went to [muse][] mode for awhile, which was pretty good, but I'm not primarily an emacs user, so it always takes me a little while to get used to it again.  Also, since I only use emacs for org mode (and muse mode at the time), I'd never really feel proficient at it to any appreciable degree.
 
-So I tried out a few mac blog authoring apps.  I ended up buying one ([Blogo][]) to try it out some more; there were some issues involving the [MetaWeblog][] support in community server 2.0 which they then fixed up, but I ended up dropping it a bit later.  It's a pretty slick product, but I couldn't keep using it after a somewhat hard-to-forgive design decision.  When switching to the rich-editing mode from the source editing mode, it "cleaned" up my code by deleting about half of what I had written.  I suppose that is fine and expected in crappy scenarios (they even pop up a scary warning "oh noes, I may delete everything!"), but then I realized that switching back and forth between rich-edit and source-edit mode  **cleared the undo history**, so I couldn't retrieve any of the code it has just deleted (which was more than half of what I had written).  This is complicated by the save/drafts model for many of these blog editing apps being kinda unclear, which makes document history a bit more complicated.
+So I tried out a few mac blog authoring apps.  I ended up buying one ([Blogo][]) to try it out some more; there were some issues involving the [MetaWeblog][] support in community server 2.0 which they then fixed up, but I ended up dropping it a bit later.  It's a pretty slick product, but I couldn't keep using it after a somewhat hard-to-forgive design decision.  When switching to the rich-editing mode from the source editing mode, it "cleaned" up my code by deleting about half of what I had written.  I suppose that is fine and expected in crappy scenarios (they even pop up a scary warning "oh noes, I may delete everything!"), but then I realized that switching back and forth between rich-edit and source-edit mode  **cleared the undo history**, so I couldn't retrieve any of the code it has just deleted (which was more than half of what I had written).  This is further complicated by the save/drafts model for many of these blog editing apps being kinda unclear, which makes document history a bit more complicated.
 
 I decided to try something else, then.  Instead of trying to adapt to a new tool, why not try to adapt my existing tools to this problem?
 
@@ -57,14 +53,14 @@ So, I figure this is a good opportunity to kill a few, maybe a flock of birds wi
 
 I imagine that there will be a couple disparate parts to this, studying my current workflow.  Here's a list of my ideas, in order of likeliness that I'll get it figured out before getting bored or busy with other things (like my new Xbox 360):
 
-  * Syntax coloring (the obvious one); things like bold, italics, links, pre blocks and code blocks, etc.
-  * Turn URLs into clickable hyperlinks &ndash; this is pretty easy to do with the new URL tagging support in the editor.
-  * Some parts of intellisense &ndash; I'm thinking of doing smart tags for links (like turning what looks like a url into a correct markup link), completion for things like link definitions, and quick info for image references (if I don't do anything cooler for images)
-  * Inline images of some sort &ndash; this somewhat violates the principle of adding/removing things other than markup, so I'm not sure if I'll do this or not.  It's certainly possible to do and not that difficult, but using quick info for this may be a sufficiently useful feature without getting into the business
-  * A tool window for showing the current output (as a webpage) of the buffer I'm editing, updating live while I'm editing it.  Alternatively, this may be just another document or a margin, depending on where I end up.  I'm not very good at visual sctuff, so it'll probably be as simple as it can be and still get the job done.
-  * Syntax support for regular html &ndash; Markdown lets you use intersperse regular html into your Markdown files, so it would be nice to get these to be correctly syntax highlighted.  This may actually be really simple (just using a `ContentType` that derives from html), but if it isn't, it isn't high on my list, mostly because I don't tend to use it for anything other than anchor tags.
-  * Spell checking support &ndash; a couple people have built samples that do spell checking, so that would be nice to add, especially since I'm writing prose.
-  * Syntax support for code blocks &ndash; this would be kinda cool, though may be of limited utility since most of the code blocks I embed directly into my posts are very tiny, at most a few words.  The larger blocks I tend to put somewhere like <http://gist.github.com>, so that they can be versioned and referenced to as an independent entity.
+  * **Syntax coloring** (the obvious one); things like bold, italics, links, pre blocks and code blocks, etc.
+  * Turn URLs into **clickable hyperlinks** &ndash; this is pretty easy to do with the new URL tagging support in the editor.
+  * Some parts of **Intellisense** &ndash; I'm thinking of doing smart tags for links (like turning what looks like a url into a correct markup link), completion for things like link definitions, and quick info for image references (if I don't do anything cooler for images).
+  * **Inline images** of some sort &ndash; this somewhat violates the principle of adding/removing things other than markup, so I'm not sure if I'll do this or not.  It's certainly possible to do and not that difficult, but using quick info for this may be a sufficiently useful feature without getting into the business of putting images directly in the editor.  Remember, just because you *can* do something doesn't necessarily mean that you *should*.
+  * A tool window for **showing the current output** (as a webpage) of the buffer I'm editing, updating live while I'm editing it.  Alternatively, this may be just another document or a margin, depending on where I end up.  I'm not very good at visual schtuff, so it'll probably be as simple as it can be and still get the job done.
+  * **Syntax support for regular html** &ndash; Markdown lets you use intersperse regular html into your Markdown files, so it would be nice to get these to be correctly syntax highlighted.  This may actually be really simple (just using a `ContentType` that derives from html), but if it isn't, it isn't high on my list, mostly because I don't tend to use it for anything other than anchor tags.
+  * **Spell checking support** &ndash; a couple people have built samples that do spell checking, so that would be nice to add, especially since I'm writing prose.
+  * **Syntax support for code blocks** &ndash; this would be kinda cool, though may be of limited utility since most of the code blocks I embed directly into my posts are very tiny, at most a few words.  The larger blocks I tend to put somewhere like <http://gist.github.com>, so that they can be versioned and referenced to as an independent entity.
 
 In any event, I'm planning to write a series of articles about each of these features.  Also, if you have anything specific you want to see other than what I've highlighted above, call it out in the comments.
 

@@ -1,0 +1,107 @@
+<!-- Snapshots -->
+
+No posts in a long while, as we've all been pretty hard at work. Since I find myself with a bit of free time, I have a few topics that I wanted to write about.  Since I usually write about extensions, I thought I'd step aside for a second to write about something a bit more fundamental and architectural-y: **snapshots**.
+
+(A quick pause for terminology: when I use the term **actor** from here on out in reference to people using a text buffer, I'm referring to either physical people, language services, or any other piece of code that wants information about a buffer at any point in time.
+
+### An unnecessarily lengthy explanation of text editing.
+
+(I'm completely serious. Skip this section. It's really boring. It is at least &frac14; of a Steve Yegge in length.)
+
+As you can imagine with most text editors, at some point in time, you have to pick a solution for how you are going to store text. There are a few basic characteristics of a *code* editor to keep in mind. Starting off with the really obvious ones, and moving on to (perhaps) the slightly less obvious:
+
+ * You are going to be dealing, at times, with a large amount of text.  Machine-generated source files can be *huge*, and certain file types (like xml and some .aspx) can get ginormous.
+ * The buffer will be changing constantly, and the changes will appear throughout the file (meaning the user isn't generally just typing *at the end* or *in only one area* for the lifetime of the editing session, though changes tend to be fairly localized as the user is making them).
+ * Services built around programming tend to use a mix of line- and stream-based coordinates, so providing both is useful.
+ * If you have more than one actor interested in the text buffer (past the person sitting in front of the computer), they will likely all want to read from the buffer irrespective of the others.  However, forgetting collaborative editing scenarios for a second, there is generally only a single actor who wants to modify the buffer at any given time.
+ * Language services that utilize the text buffer oftentimes want/need to look at a static version of the buffer without worrying about it changing.
+ * Clients also often want to track pieces of the editor over time (regions of text, certain identifiers, etc.)
+ * A single file or unit of compilation may mix a couple of different languages together.  Think of various web-based technologies - a `.php` file that has HTML or XHTML, inline `&lt;?php&gt;` blocks, some JavaScript, and maybe even some type of templating language.  Even in most C# files, doc-comment blocks have their own XML-based mini-language.
+
+When you put them all together, you get a picture of the difficult parts:
+
+ * If you have a lot of text that changes constantly, you should have a data structure that allows you to do that efficiently, both in time and space.
+ * If many people want to read a static version of the buffer at the same time, and you *don't* provide any help, they have a few choices:
+    * If you provide a locking mechanism, lock the buffer so that nobody can edit it. This would also block the user from editing, so it's not a very good solution.
+    * Copy the entire buffer to some temporary storage someplace else and operate on that. The problem is that it gets outdated fairly quickly, so you'd have to write logic to translate positions in the temporary copy back to positions in the real buffer. Also, the obvious problem is that if you have four or five actors all looking at temporary copies of the buffer at once, you'll have four or five copies of the buffer (assuming that each actor doesn't create a couple of copies of the text themselves). It gets pretty bloated pretty quickly.
+ * For *language-in-language* scenarios, it may be helpful to solve this in a general way, so that instead of a language service understanding php/html/xml/javascript/some-template-language, you can have separate language services that understand each on individually, and then compose the results of each language service's work.
+
+I'm not going to get to the very last point in this post. Our answer for that (and a few other related problems) we call *projection*, but it deserves its own post from Jack (which would probably appear on the [VS Platform blog](http://blogs.msdn.com/visualstudio).  I will, however, talk about how our buffer responds to the other problems.
+
+### A text buffer
+
+When you look at an `ITextBuffer` in the new editor, you can pull it out into a few parts.
+
+## BUFFER PICTURE HERE
+
+The **buffer** itself doesn't have very much to it.  It has a reference to a `CurrentSnapshot` which is the most up-to-date text in the buffer, and a reference to the current version.  A text buffer is effectively just a tiny collection of state, but not really any actual information (technically speaking, no text lives here).
+
+A buffer's **version** is mostly just a numeral that increases over time (except in the case of the `ReiteratedVersionNumber`, which is used by *undo* to say, "hey, version 30 is really just version 24 again").  The version has a reference to the next one (if there is one), and versions contain change deltas that take you from one version to the next.  In a sense, versions are your editing history.  However, besides the change deltas, there is still no text here, besides the text that has changed in a given version.
+
+This is where snapshots come in. A **snapshot** is a stable, unchanging representation of the entire buffer's worth of text. Snapshots have references to the version of text they represent, and contain the entire contents of the buffer at a point in time.  Each time the buffer changes, a new snapshot is created to reflect the state of the buffer at that point.
+
+#### A side-trip to talk about garbage collection
+
+I heart garbage collection. I really do. Without it, I imagine this model would be either impossible or prohibitively difficult.  With it, we end up with a fairly simple graph of dependencies between these objects that allows us to keep around just as much information as people are using, without placing the burden of lifetime management on consumers.  One of the things you may notice from `ITextBuffer` is that there is no close method, because *buffers don't have explicit lifetime management*. Within a buffer, here are how the various buffer-level objects are related:
+
+ * A **buffer** only knows about its current *snapshot* and *version*.  It doesn't reference anything in the past.
+ * A **snapshot** only knows about its *version* and the *buffer* it came from.  It doesn't know anything about prior or future snapshots.
+ * A **version** only knows about the next *version* and the *buffer* it came from.  Pointedly, a version does *not* reference the associated snapshot.
+
+This means that newer snapshots or versions (or the buffer) *don't pin older information in memory*. As soon as people stop referring to, say, the original snapshot of the buffer, it goes ***poof***, back into the bit bucket. Even if someone is holding on to the version corresponding to that snapshot, the snapshot chain will still get collected, since versions don't pin snapshots. So, if you:
+
+ * *Hold on to a buffer* &mdash; you hold the current snapshot and version (at any point in time; as the buffer changes, the old snapshots and versions can be collected)
+ * *Hold on to a version* &mdash; you hold on to every version from there onward.  This in common for things like `ITrackingPoint` and `ITrackingSpan`, but the default fidelity for these (`ForwardFidelity`) moves forward along the version change as you request more up-to-date points, thus freeing older versions.
+ * *Hold on to a snapshot* &mdash; same as holding a version, plus the snapshot you are holding on to.
+
+
+### So, what are snapshots?
+
+First, snapshots are *immutable*; if you have a reference to a snapshot (while trying to provide something like coloring, or error detection, or outlining, or intellisense information, or printing, or formatting, or whatever else you'd want to do), you don't have to worry about locking it or anyone else changing it. Moreover, because your snapshot is immutable, you can access it on any thread without worry, so asynchronous background workers don't have to do anything magical.  Also, the same snapshot is shared amongst all clients that use it (and is collectible after the last client stops using it), so the value increases as the environment of tools gets more complex.
+
+Because snapshots are immutable, they can share data from one version to the next. In effect, when a buffer change happens (say, adding the word "foo"), everything but the new text and some pieces of the data structure itself are shared with the previous snapshot.  Generating the snapshot is pretty quick, and the overhead of each snapshot is fairly low, so it doesn't ever really show up in traces around what is taking time while the user is editing the buffer.
+
+Now, if we did keep around lots and lots of snapshots, the overhead from each would add up quickly.  As it happens, though, snapshots tend to live for a pretty short period of time, as most people don't hold on to them for anything more than some quick processing.
+
+Another interesting this is that, from any given snapshot (and associated version), you could recreate the snapshots of future versions; the buffer doesn't provide a mechanism to do this, but it is technically possible to write.  One of the handy things that is very similar to this, however, is tracking an arbitrary span of text through versions of the buffer.  I wrote about markers and tracking in an [earlier post about marker and tracking span performance][markers-and-tracking].
+
+
+### Common and useful attributes of Snapshot-things
+
+So, speaking of tracking spans, there are a number of useful things that all snapshot-related data structures (like `SnapshotPoint`, `SnapshotSpan`, `NormalizedSnapshotSpanCollection`, `VirtualSnapshot(Point|Span)`) have in common.
+
+First, you can use `TranslateTo` to find the equivalent point/span in a different snapshot.  This is basically what tracking spans use under the covers, which uses the version information to move forward from one snapshot to the next.  Note that you can translate backwards (like from a `SnapshotSpan` on version 3 to version/snapshot 1), but there can be a loss of fidelity.
+
+> It's easiest to think of it like solving for `x` in the equation: `x^2 = 4`.  Trying to work backwards, that value could be either `2` or `-2`.  However, if you know what `x` is, the value `x^2` has only one valid result.  Similarly, tracking backwards results in choices for what spans/points to return in the case of certain operations.  If you have the string "Hello there Jane!" and a tracking span over "there", it makes sense that when you delete the whole string, you are left with an empty span.  However, if you try to go backwards, knowing nothing more than that the span is empty *after* the deletion, how do you know where it was before the deletion?  You have a ton of choices, since *any* span before the deletion would become an empty span afterwards.  In math parlance, translating these spans forward is not a "1-1"([injective][wiki-injective]) function, so it isn't reversible.
+
+Second, they tend to be used as arguments to many different pieces of the editor (like the `ITextView`) that care about buffer positions.  In a more lax environment (and, indeed, before about 16 months ago) these would just be `int`, which leads to some quietly ignored issues. For example, if I call a method and pass in position 10, what happens if I really (possibly accidentally) meant "position 10 a couple versions ago"? Or what if I'm calling a method on the *wrong* buffer? The latter is slightly unlikely, but the former happens quite a bit, and you end up only finding those issues when the position is towards the end of the buffer and the user just performed a big delete operation at the end ("Whoops! You asked for position 300, but the buffer is only 50 characters long!").  We had a whole host of those bugs until we switched over to using `Snapshot*` throughout the view-layer.
+
+Of course, even using `Snapshot*` still leaves us a choice in implementation:
+
+ 1. Translate the given `Snapshot*` to the snapshot we care about (usually `ITextBuffer.CurrentSnapshot` or `ITextView.TextSnapshot`).  This means that calls with out-of-date information will succeed and quite possibly give the answer that you meant.  However, there are cases where it may give unexpected results, and there wouldn't be a good way to tell.
+ 1. Throw an exception when an older (or, in rare cases in the view, newer) `Snapshot*` is used.  *This is the way we ended up writing it*, preferring early and noisy errors to silent success with possible differences in the intent and outcome of a given method call.
+
+Finally, because these are all related to a specific snapshot, they can be used across threads without worrying about locking or the buffer under them changing.  You can always call `SnapshotSpan.GetText()` (which goes back to the `ITextSnapshot` to get th text), or `GetContainingLine()`, regardless of what thread you are on or what the user is doing.
+
+### How does this solve the problems in the original list?
+
+So, from the original list:
+
+ * *Large amounts of text* &mdash; the data structure overhead is pretty low compared to the size of the actual text involved, and it grows sub-linearly as the text grows.
+ * *Constant changing* &mdash; the cost per changes also grows sub-linearly with the size of the buffer.  This means that the time spent actually changing the buffer (generating a new snapshot) on each text change is negligible compared to the time spent in other things buffer related, like people responding to text changes (it is more than a factor of 10 different), and even more so when compared to the cost of the view updating and the people responding to that.
+ * *Line and stream coordinates* &mdash; this isn't strictly related to snapshots, but snapshots do provide logarithmic line/column and stream access.
+ * *Multiple listeners/language services* &mdash; snapshots come in handy here, of course
+ * *Tracking regions over time* &mdash; this is taken care of by the various tracking-related behaviors of `Snapshot*` and tracking points/spans, thanks to how snapshots and versions work.
+
+### Common misconceptions
+I'll end this with a few common misconceptions and worries that we see people talk about in reference to snapshots:
+
+ 1. Using the phrase "taking a snapshot", or a belief that asking for a snapshot is the act that *generates* the snapshot (and a fear of using that, since it may be expensive).
+ 1. A fear that the snapshots themselves must be fairly expensive, since they provide the entire contents of the buffer at any time.
+
+For (1), as we already saw, snapshots are automatically generated on each text change and are fundamental to how a buffer works, so there is no need to worry about the cost of getting and using them.  Nothing a user/extension can do causes the creation of a snapshot other than changing the text in the buffer.
+
+For (2), snapshots aren't as expensive as you think.  There is a cost, and you shouldn't be holding snapshots for longer than you need them, but it isn't something to worry about *too much*.  That being said, if you are designing something like the *undo* system, which has to keep track of change information for *every change* in a buffer, you probably do **not** want to reference an `ITextSnapshot` (directly or indirectly, via the `Snapshot*` data structures) or `ITextVersion`.  The undo primitives in the editor tend to pull apart things like caret and selection position into `Span`s and integers and such, exactly for this reason.  However, assuming you aren't rewriting undo, you probably don't need to worry about this too much.
+
+ [markers-and-tracking]:http://blogs.msdn.com/noahric/archive/2009/06/06/editor-perf-markers-vs-tracking-spans.aspx
+ [wiki-injective]:http://en.wikipedia.org/wiki/Injective_function

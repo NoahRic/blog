@@ -1,0 +1,115 @@
+<!-- Markdown, part 3 - A tool window previewer -->
+
+Well, this part ended up being both easier and considerably harder than I expected, depending on how you look at it.
+
+First, the obligatory screenshot:
+
+<a href="http://blogs.msdn.com/photos/noahric/images/9946409/original.aspx">
+    <img src="http://blogs.msdn.com/photos/noahric/images/9946409/425x230.aspx" alt="Markdown preview tool window, editing the Markdown Part 2 article" />
+</a>
+
+## Easy stuff!
+
+So the easy thing in this case turned out to be the actual logic of creating the web browser and changing what it shows.  Wpf comes with a decently handy `WebBrowser` control, with an equally handy (but funnily-named) `NavigateToString`.  To generate the markdown text, I just call into `Markdown.cs` (instead of `MarkdownParser.cs`; this time, I *do* just want the HTML output), and dump the string wholesale into the browser.
+
+The updating was also fairly simple.  The preview window is updated a) synchronously when a markdown document gains focus and b) asynchronously after 500 milliseconds of contiguous idle (the effect is that it doesn't update if you are typing fast enough, but updates when you stop typing).  In this way, you don't really have to wait around for it to update; when you finish typing a phrase (like a period or a semi-colon), it updates the preview of what you've typed.  The effect can be slightly annoying at times; the images load asynchronously after the rest of the page has displayed, so any images do appear to flicker quite a bit.  Everything else looks pretty static, though, so I don't really have anything to complain about.
+
+The only tricky part was the reload behavior; I wanted the preview window to maintain approximately the same scroll position when refreshed, so you don't have to continue scrolling down to the text you want everytime you type.  Because the `WebBrowser` is just a really thin wrapper on top of some `mshtml` ugliness, the code to do this is equivalently ugly.  If you are morbidly curious, you can look at [MarkdownPreviewToolWindow.cs][], but don't stare too long.  You may lose your eyesight.
+
+## The hard stuff
+
+Which brings me to the hard part of what I had to do &ndash; making a tool window.
+
+Usually, this isn't all that bad.  The SDK comes with project/wizard that walks you through a package with a tool window, but the difficulty is in combining a package and an editor extension.
+
+The easy part of this feature (using `WebBrowser`, figuring out how to update things, and even figuring out the scrolling issue) took maybe 15 minutes.  This part (figuring out packages) was about 4 hours.
+
+For the sake of anyone else doing this, I'll describe the hurdles I tripped over, and how to get over them without extensive bodily harm:
+
+First, to note: if you are going to do this, it is probably best to create a **Package first** and *then* add the editor extensibility part.  If you create the package first, the *only* thing you need to do (besides adding references for whatever editor assemblies you need) is add a line to your `source.extension.vsixmanfiest`, in the `<Content>` section, that reads:
+    
+    <MefComponent>|YourProjectName|</MefComponent>
+
+Going in the other direction, as you'll see, is no small feat.
+
+### Turning an editor extension project into a package
+
+So, the first thing I started with was creating the default Package project, with a tool window, so that I could copy over the pieces I needed into my existing project.  Right away I ran into the first problem, which is that this was throwing an exception everytime I did it (very likely from one of the extensions I'm running).  I never did figure out what extension was causing it to fail (and I was pretty tired at this point), so I instead searched for alternate sources of information.
+
+> **Issue:** can't build default VS Package project to use as a reference for your editor extension project transformation.
+
+> **Work around:** Look at the [Tool Windows SDK samples][sdk-samples] online.  These built just fine on my Beta 2 drop.
+
+Ok, now I've found the content I need, and it looks like I'll need to grab a few things from the project:
+
+ * `FooPackage.cs`, which contains the primary logic for initializing the package and the command handling for opening the tool window
+ * `FooToolWindow.cs`
+ * `FooCommands.vsct`, which is the magical command xml document that will be compiled into a different magical command document.
+ * `Resources.resx`
+ * Two `bmp` files for the UI (I actually ended up not dealing with these and just changing the menu command to using *no* icon, to simplify tracking down the issues I ran into).
+
+All well and good, until you realize (40 minutes later, for me) that the `.vsct` file isn't actually being compiled correctly.
+
+> **Issue:** just adding a `.vsct` isn't enough to have it actually *compiled* as a `.vsct`.
+
+> **Fix:** Make sure the `Build Action` for the `.vsct` file is `VSCTCompile`.  You can change this in the Properties tool window (with that file selected).
+
+This one I was lucky enough to find someplace on [Connect][].
+
+Excellent, so now we're compiling that file.  I ran into issues where it couldn't find one of the `.bmp` files that I had copied over (even though I made sure the resources file referenced it and the paths were correct and such), so this is when I ended up just removing those files entirely and references to these icons in the `.vsct`.
+
+After another hour or so of trying to figure out why the Package still wasn't getting loaded, I realized that my project wasn't creating a `.pkgdef` file, which is required for the package to set the correct registry keys for VS to know about it.  Of this hour of searching, about 15 minutes was spent trying to find and remove a special little property defined in the `.csproj` file:
+
+> **Issue:** Project isn't creating a pkgdef file.
+
+> **Fix:** Find and remove the line in the `.csproj` file that defines the property `GeneratePkgDefFile` as `false`.
+
+I'm guessing that property is set for all the projects that are editor extensions, since they don't require `.pkgdef` files.  I would have expected CreatePkgDef (or the msbuild task) to be smart enough to run anyways but not actually generate a `.pkgdef` unless you need it, but I guess that isn't how it works.  At least now *you* know what to look for.
+
+At this point, the CreatePkgDef step was running, but it wouldn't complete succesfully and my build would fail.  It mentioned something about checking the `LoaderException` property (which generally means that some assemblies weren't found), but I'd have to debug that tool to figure it out, and the build output was thoroughly unhelpful.
+
+To get some more information, I tried running the tool manually (`CreatePkgDef.exe` comes with the SDK), and discovered that the editor assemblies were all failing to be found.  I'm not sure why, but `CreatePkgDef` apparently was using a different assembly search path than the regular build was, and these assemblies were added as references without any explicit path (just `Microsoft.VisualStudio.Foo`).  Also, at least for Beta 2, these assemblies are *not* in the `GAC`, so whatever you are building needs to know to look in the SDK to find them.
+
+The workaround for this one felt really hacky, so I apologize for the taste this may leave in your mouth:
+
+> **Issue:** `CreatePkgDef` unable to run for projects that reference editor assemblies without qualifying paths (even though the rest of the build steps complete succesfully).
+
+> **Fix:** Mark all the editor assemblies as `CopyLocal` = `true` in the properties page.  They won't be included in the `.vsix`, which is what you want, but they will be around for `CreatePkgDef` to find.
+
+After that, `CreatePkgDef` could run and the Package was loaded successfully.  The only other somewhat awkward code I had to write was the code that allowed the MEF component (namely, the margin) to access the preview window.  It ended up being fairly painless (just using `IVsShell` to access/load the package), though that was after an initial step of creating an intermediate MEF service that `MarkdownPackage` would register with on creation.  In the end, it all looks deceptively simple.
+
+> **Issue:** Started with an editor extension, and tried to migrate VS Package project files over to the editor extension.
+
+> **Fix:** Don't do that.  Either start with a VS Package project, if you think you will need one, or migrate your editor extensions *to* the VS Package project when you discover that you do.
+
+## Final thoughts and next steps
+
+This was a thoroughly frustrating experience, and a reminder that there is still a lot of work for us to do to make extensibility follow the "pit of success" pattern.  This was a common saying of Rico Mariani, which is to say that success should be so automatic that it is like falling into a pit, instead of something you have to strive to accomplish.  Hopefully, though, my struggles in getting this work will get at least one person unstuck in the future (fingers are crossed).
+
+Going forward with the list, I've realized that the **inline images** step just isn't necessary when you can see the image you've linked in the preview pane right next to what you are typing.  As such, I'm putting it at the bottom (grayed out), though not necessarily crossing it out yet.
+
+At this point, the only real feature that I'm truly missing (from my vim workflow) is **spell checking support**, which should hopefully just be a matter of me *finding* an extension, instead of writing one.
+
+From now on, then, I'll be working on value-added features, relative to my old workflow, instead of just matching features.  I also think that the other ideas I've listed are of much smaller value than what I've done so far, so I'll probably complete these more for the value of the examples than for the actual benefit to my workflow.
+
+And, just to add again &ndash; if you have any ideas for what you'd like to see added, let me know in the comments.
+
+And here's the list!
+
+##### TODO:
+
+ * Some parts of **Intellisense** &ndash; I'm thinking of doing smart tags for links (like turning what looks like a url into a correct markup link), completion for things like link definitions, and quick info for image references (if I don't do anything cooler for images).
+ * <div style="background-color: #FFFF00">**Spell checking support** &ndash; a couple people have built samples that do spell checking, so that would be nice to add, especially since I'm writing prose.</div>
+ * **Syntax support for code blocks** &ndash; this would be kinda cool, though may be of limited utility since most of the code blocks I embed directly into my posts are very tiny, at most a few words.  The larger blocks I tend to put somewhere like <http://gist.github.com>, so that they can be versioned and referenced to as an independent entity.
+
+##### Done or no longer doing:
+
+ * <del>**Syntax coloring** (the obvious one); things like bold, italics, links, pre blocks and code blocks, etc.</del>
+ * Turn URL labels into **clickable hyperlinks** &ndash; this is pretty easy to do with the new URL tagging support in the editor.
+ * <del>A tool window for **showing the current output** (as a webpage) of the buffer I'm editing, updating live while I'm editing it.  Alternatively, this may be just another document or a margin, depending on where I end up.  I'm not very good at visual schtuff, so it'll probably be as simple as it can be and still get the job done.</del>
+ * <del>**Syntax support for regular html** &ndash; Markdown lets you use intersperse regular html into your Markdown files, so it would be nice to get these to be correctly syntax highlighted.  This may actually be really simple (just using a `ContentType` that derives from html), but if it isn't, it isn't high on my list, mostly because I don't tend to use it for anything other than anchor tags.</del>
+ * <div style="color: #666666">**Inline images** of some sort &ndash; this is now mostly cut, since the preview window gets me most of the value.</div>
+
+ [Connect]:http://connect.microsoft.com/
+ [MarkdownPreviewToolWindow.cs]:foobar.com
+ [sdk-samples]:http://code.msdn.microsoft.com/ToolWindows

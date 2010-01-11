@@ -10,9 +10,9 @@ First, the obligatory screenshot:
 
 ## Easy stuff!
 
-So the easy thing in this case turned out to be the actual logic of creating the web browser and changing what it shows.  Wpf comes with a decently handy `WebBrowser` control, with an equally handy (but funnily-named) `NavigateToString`.  To generate the markdown text, I just call into `Markdown.cs` (instead of `MarkdownParser.cs`; this time, I *do* just want the HTML output), and dump the string wholesale into the browser.
+So the easy thing in this case turned out to be the actual logic of creating the web browser and changing what it shows.  Wpf comes with a decently handy `WebBrowser` control, with an equally handy (but funnily-named) `NavigateToString`.  To generate the Markdown text, I just call into `Markdown.cs` (instead of `MarkdownParser.cs`; this time, I *do* just want the HTML output), and dump the string wholesale into the browser.
 
-The updating was also fairly simple.  The preview window is updated a) synchronously when a markdown document gains focus and b) asynchronously after 500 milliseconds of contiguous idle (the effect is that it doesn't update if you are typing fast enough, but updates when you stop typing).  In this way, you don't really have to wait around for it to update; when you finish typing a phrase (like a period or a semi-colon), it updates the preview of what you've typed.  The effect can be slightly annoying at times; the images load asynchronously after the rest of the page has displayed, so any images do appear to flicker quite a bit.  Everything else looks pretty static, though, so I don't really have anything to complain about.
+The updating was also fairly simple.  The preview window is updated a) synchronously when a markdown document gains focus and b) asynchronously after 500 milliseconds of contiguous idle (the effect is that it doesn't update if you are typing fast enough, but updates when you stop typing).  In this way, you don't really have to wait around for it to update, and it feels like it updates when you've finished a thought.  The effect *can* be slightly annoying at times; the images load asynchronously after the rest of the page has displayed, so any images themselves flicker.  Also, the scrolling happens when the `LoadCompleted` event is sent out, which happens only *after* all the images have finished downloading, so adding images at all causes the rest of the scrolling to appear jumpy as well.  Somewhat disconcerting, but not enough of an issue to reduce the utility of the tool window greatly.
 
 The only tricky part was the reload behavior; I wanted the preview window to maintain approximately the same scroll position when refreshed, so you don't have to continue scrolling down to the text you want everytime you type.  Because the `WebBrowser` is just a really thin wrapper on top of some `mshtml` ugliness, the code to do this is equivalently ugly.  If you are morbidly curious, you can look at [MarkdownPreviewToolWindow.cs][], but don't stare too long.  You may lose your eyesight.
 
@@ -98,12 +98,15 @@ At this point, the only real feature that I'm truly missing (from my vim workflo
 
 From now on, then, I'll be working on value-added features, relative to my old workflow, instead of just matching features.  I also think that the other ideas I've listed are of much smaller value than what I've done so far, so I'll probably complete these more for the value of the examples than for the actual benefit to my workflow.
 
+I've also added a bullet point for the **margin** work.  It need some cleanup, pretty icons, and various other options could be helpful (such as being able to disable the auto-update, for if you are using remote desktop or you just don't want to see it all the time).  I'm hoping to get some help with this, since I'm pretty awful at anything interface related (my color choice is also pretty bad, if you haven't figured out yet from the screenshots).
+
 And, just to add again &ndash; if you have any ideas for what you'd like to see added, let me know in the comments.
 
 And here's the list!
 
 ##### TODO:
 
+ * Clean up the **margin** and add new features/options.
  * Some parts of **Intellisense** &ndash; I'm thinking of doing smart tags for links (like turning what looks like a url into a correct markup link), completion for things like link definitions, and quick info for image references (if I don't do anything cooler for images).
  * <div style="background-color: #FFFF00">**Spell checking support** &ndash; a couple people have built samples that do spell checking, so that would be nice to add, especially since I'm writing prose.</div>
  * **Syntax support for code blocks** &ndash; this would be kinda cool, though may be of limited utility since most of the code blocks I embed directly into my posts are very tiny, at most a few words.  The larger blocks I tend to put somewhere like <http://gist.github.com>, so that they can be versioned and referenced to as an independent entity.

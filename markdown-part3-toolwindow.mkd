@@ -16,6 +16,8 @@ The updating was also fairly simple.  The preview window is updated a) synchrono
 
 The only tricky part was the reload behavior; I wanted the preview window to maintain approximately the same scroll position when refreshed, so you don't have to continue scrolling down to the text you want everytime you type.  Because the `WebBrowser` is just a really thin wrapper on top of some `mshtml` ugliness, the code to do this is equivalently ugly.  If you are morbidly curious, you can look at [MarkdownPreviewToolWindow.cs][], but don't stare too long.  You may lose your eyesight.
 
+Ideally, during the reload-from-typing case, the window would scroll to match the editor's scroll position.  This hopefully wouldn't be *too* awful, as I could try to inject an anchor tag of some sort either where the text changed or for something like the middle line visible in the editor, plus some javascript for scrolling to that anchor position on load.  Maybe I'll play around with that when I finish some of the other work.
+
 ## The hard stuff
 
 Which brings me to the hard part of what I had to do &ndash; making a tool window.
@@ -54,9 +56,13 @@ All well and good, until you realize (40 minutes later, for me) that the `.vsct`
 
 > **Fix:** Make sure the `Build Action` for the `.vsct` file is `VSCTCompile`.  You can change this in the Properties tool window (with that file selected).
 
-This one I was lucky enough to find someplace on [Connect][].
+We're almost to building, except that now I get some error about "No resource file set the resource merger."  This is the *only* problem that I solved relatively quickly, thanks to Google and someone who filed a [Connect bug][connect] about it (with the work-around):
 
-Excellent, so now we're compiling that file.  I ran into issues where it couldn't find one of the `.bmp` files that I had copied over (even though I made sure the resources file referenced it and the paths were correct and such), so this is when I ended up just removing those files entirely and references to these icons in the `.vsct`.
+> **Issue:** build fails, error is "No resource file set the resource merger."
+
+> **Fix:** add `<MergeWithCTO>true</MergeWithCTO>` to the project file under the section for the `.resx` file.
+
+Getting closer now.  I ran into issues where it couldn't find one of the `.bmp` files that I had copied over (even though I made sure the resources file referenced it and the paths were correct and such), so this is when I ended up just removing those files entirely and references to these icons in the `.vsct`.
 
 After another hour or so of trying to figure out why the Package still wasn't getting loaded, I realized that my project wasn't creating a `.pkgdef` file, which is required for the package to set the correct registry keys for VS to know about it.  Of this hour of searching, about 15 minutes was spent trying to find and remove a special little property defined in the `.csproj` file:
 
@@ -110,6 +116,6 @@ And here's the list!
  * <del>**Syntax support for regular html** &ndash; Markdown lets you use intersperse regular html into your Markdown files, so it would be nice to get these to be correctly syntax highlighted.  This may actually be really simple (just using a `ContentType` that derives from html), but if it isn't, it isn't high on my list, mostly because I don't tend to use it for anything other than anchor tags.</del>
  * <div style="color: #666666">**Inline images** of some sort &ndash; this is now mostly cut, since the preview window gets me most of the value.</div>
 
- [Connect]:http://connect.microsoft.com/
+ [Connect]:https://connect.microsoft.com/VisualStudio/feedback/ViewFeedback.aspx?FeedbackID=515485&wa=wsignin1.0
  [MarkdownPreviewToolWindow.cs]:foobar.com
  [sdk-samples]:http://code.msdn.microsoft.com/ToolWindows

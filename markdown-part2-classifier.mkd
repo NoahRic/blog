@@ -126,8 +126,8 @@ So, here's the list:
  [markdownmode-github]:http://github.com/noahric/markdownmode
  [Vim-markdown]:http://github.com/NoahRic/Vim-markdown
  [ContentType.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/ContentType.cs
- [ClassificationTypes.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/ClassificationTypes.cs
- [ClassificationFormats.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/ClassificationFormats.cs
+ [ClassificationTypes.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/Classifier/ClassificationTypes.cs
+ [ClassificationFormats.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/Classifier/ClassificationFormats.cs
  [MarkdownParser.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/MarkdownParser.cs
  [Markdown.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/Markdown.cs
  [MarkdownSharp]:http://blog.stackoverflow.com/2009/12/introducing-markdownsharp/

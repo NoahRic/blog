@@ -1,0 +1,49 @@
+<!-- Bug fixes -->
+
+I took a little break from the Markdown work to fix a few bugs and annoyances in my other extensions.
+
+## Go To Definition
+
+*[Go To Definition on github][gotodef-github].*<br />
+*Updated [Go To Definition on VSGallery][gotodef-vsgallery].*
+
+There were two known issues with this one.  The first was reported by a user, Craig Gidney, who noticed that you can't `ctrl-click` on an identifier if there is either a breakpoint or a "highlight references" marker over the token.
+
+The other is an issue I noticed while using the extension in my normal work, which is that you can't activate a smart tag with `ctrl-.` (period) if your mouse happens to be over a token that is underlined.
+
+The underlying cause of both of these turned out to be the same, which is that the logic in the classifier was causing spurious and constant layouts when the mouse was moving over the token that was already highlighted.  The change was a simple one; if the classifier is asked to highlight a new span, it doesn't do any work if the old and new highlight spans are the same.
+
+You can view the [diff on github][gotodef-diff], if you want to see specifically what I mean.
+
+ [gotodef-github]:http://github.com/noahric/gotodef
+ [gotodef-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b
+ [gotodef-diff]:http://github.com/NoahRic/GoToDef/commit/96f6e928d11aacd4076ee6c7278413cda46debeb
+
+## Triple-click
+
+*[Triple-click on github][tripleclick-github].*<br />
+*Updated [Triple-click on VSGallery][tripleclick-vsgallery].*
+
+This one comes from Chris Dias, who is the Group Program Manager of the Visual Studio Platform team (he's basically chief <abbr title="Program Manager">PM</abbr> of all the PMs that I work with).  He noticed that triple-click in most other applications selects the a line *and the line break*, whereas this extension doesn't include the line break.  That means that if you select a line and then press delete/backspace or cut, it wouldn't actually get rid of the line (in the sense that you'd want).
+
+Also, I wanted to add drag support, to select whole lines at a time after you've clicked (and held the mouse down).  Most other applications support those, though some (like IE) have some strange line-select/word-select hybrid once you start dragging.  For most other applications, it works like word-selection, where the original word/line remains highlighted as the "anchor" of the text you are selecting.
+
+The first change was really easy; `ITextLine` has two properties for the extent of a line: `Extent` and `ExtentIncludingLineBreak`.  All I had to do was switch from using the former to the latter.
+
+The second change wasn't too bad, either.  I added handlers for mouse move and left button up (for tracking the state of a drag that started with a triple-click), and then wrote a little piece of logic for determining the extent of the drag, making sure to always include the original line that was selected.
+
+Here's the [diff][tripleclick-diff], if you are curious.
+
+#### Updating
+
+If you haven't already, I'd advise turning on the automatic updating logic in VS, which you can find under:
+
+    Tools->Options->General->Environment->Extension Manager->Automatically check for updates to installed extensions
+
+Also, if you want to see all the extensions I've installed, you can search directly in the extension manager for `Noah Richards`.  So far, I have four: Triple Click, Go To Definition, Gradient Selection, and Italic comments.  I run all but Gradient Selection locally (I don't mind the flat selection, and I'm using VS inside a VM running on my laptop, so I appreciate the quicker selection model).
+
+And last but not least &ndash; if *you* find bugs in any of these extensions, please let me know in the comments.  No guarantees that I'll get things fixed in a timely manner, but I do read every email and comment sent my way.
+
+ [tripleclick-github]:http://github.com/noahric/tripleclick
+ [tripleclick-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b
+ [tripleclick-diff]:http://github.com/NoahRic/TripleClick/commit/6df0e3666688b5feddf7ab459cec19245b2fc17e 

@@ -1,0 +1,59 @@
+<!-- Extension: Fix Mixed Tabs -->
+
+*[Download this extension][vsgallery] on the Visual Studio Gallery, or search for it in the Visual Studio Extension Manager!*
+
+A couple months back, I started work on a new extension.  At the time, I was working with another person on a small side project, and one of the constant annoyances in sharing code was that we each used separate settings for tabs/spaces.  Without getting a whole religious flame war started about *which* is preferable, the end result was preferable for no one, and that was a collection of source code with different indentation depending on who last touched any given method or block of code.
+
+I also wanted to experiment with the "information bar" concept that I first discovered in Firefox.  I'm not sure when it was first introduced in Firefox, but I remember the first time it offered to save a password of mine **without opening a modal dialog**.  It was perfect &ndash; it informed me that it could help me out in some way (though not anywhere near as annoying as Clippy), but didn't block my browsing.  The best part was that I could see the result of logging in (which *can fail*) before I had to make a decision about saving the password.  Before this, you'd end up saving a password that was wrong, but you had no way to be sure at the time you were asked.
+
+And the last thing I wanted to explore was very simple WPF animation and taking advantage of the new VS options internally for varying the UI experience based off the "rich"-ness of the client.  This is the option under `Tools->Options->Environment->General`, and the editor surfaces this under the optioned keyed by [`EnableSimpleGraphicsId`][EnableSimpleGraphicsId].
+
+Here's what I ended up with:
+
+<a href="http://blogs.msdn.com/photos/noahric/images/9948044/original.aspx">
+  <img src="http://blogs.msdn.com/photos/noahric/images/9948044/425x286.aspx" alt="Markdown preview tool window, editing the Markdown Part 2 article" />
+</a>
+
+Visible whitespace is enabled for the sake of the screenshot, but it doesn't show up by default.  I'm considering adding some trigger to turn it on/off with the information bar and possibly a way to navigate to the mixed tabs/spaces portion(s), but the UI starts to get pretty noisy when I do that.  I may add something entirely undiscoverable (like double-clicking the bar) for doing both (first double-click enables visible whitespace and scrolls to the first mixed tabs/spaces area; next double-click disables visible whitespace).
+
+Also, if you've downloaded the [Indentation Matcher Extension][bbehrens] by Brittany Behrens (she is a PM on our team), this may look familiar.  She added the functionality of this extension to the work she did on an extension that helps with a similar problem, which updates your VS settings based upon the indentation it detects in the file you are editing, so you won't accidentally ruin a file that has already been written.
+
+Still, I wanted to release this as a stand-alone and give some information about it, as I think it makes a good and fairly tiny example of a few different pieces of the editor you may work with when writing extensions.
+
+### (1) Margin
+
+The margin code is straightforward; a margin is just a WPF control that you get to position around the primary editing area, and you control almost everything about it after that (you can't reposition it or re-order it dynamically, but everything else is kosher).
+
+This margin is somewhat interesting, since it is hidden and shown dynamically.  In order to do that, it simply changes its `Height` to show/hide itself as necessary.
+
+As I mentioned earlier, I also wanted to play around with WPF animations. I'm torn by the results, however.  On the one hand, the animation makes the bar more obvious (so you notice it being there when it comes out, though it mostly blends in once it has been shown), and so adds value.  On the other, the animation still doesn't "feel" right to me, and it does have a performance penalty.  When the margin resizes like that, it forces the editor to redraw at each step.  While this doesn't require new lines to be formatted (except when it closes, in which case it may require new lines to be formatted), it still has to translate itself a tiny bit each time, and that is especially expensive over remote desktop and VMs.
+
+### (2) Simple graphics option
+
+This extension also has an example of trying to be a good citizen in terms of UI complexity.  The animation, even if it isn't gratuitous, is still considered a "rich-client" experience.  Being a good VS citizen is as simple as adding the following check in the code that hides/shows the margin:
+
+    if (_textView.Options.GetOptionValue(DefaultWpfViewOptions.EnableSimpleGraphicsId))
+        /* don't use animation! */
+
+### (3) Setting up custom undo transactions
+
+When the user selects `Tabify` or `Untabify`, the extension uses the handy methods (of the same name) on `IEditorOperations`, which is one of the services the editor offers.  However, in order to call that method, it first has to select everything (`IEditorOperations.SelectAll()` does this), which means that the undo transaction the `Tabify`/`Untabify` call creates will return to the `SelectAll` state if you undo the change.  Since that is somewhat annoying (it would be nicer if the selection returned to wherever the user had it before clicking the button), you need a bit of code to override the defaults of that undo transaction.
+
+To do this, you wrap the code in an `UndoTransaction`:
+
+    using (UndoTransaction undo = _undoHistory.CreateTransaction("Untabify"))
+
+(`_undoHistory` was retrieved by `[Import]`ing an `IUndoHistoryRegistry`)
+
+...and then call `IEditorOperations.AddBeforeTextBufferChangePrimitive` before doing anything and `IEditorOperations.AddAfterTextBufferChangePrimitive` when finished editing the buffer (and replacing the selection, as best we can).
+
+The net effect is that if the user has a piece of text selected (or the caret in the middle of the file and the file scrolled to it), it will appear mostly as if the selection and caret weren't moved.
+
+### Fin!
+
+And that's it.  The meat of the extension is in [InformationBar.cs][], which is a little over 250 lines.  Other than that, there's a bit of xaml for the margin and the margin provider, but those are both pretty short. 
+
+ [bbehrens]:http://visualstudiogallery.msdn.microsoft.com/en-us/77b317a9-1a94-4ae0-bd15-d46a3195219f
+ [EnableSimpleGraphicsId]:http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.editor.defaultwpfviewoptions.enablesimplegraphicsid(VS.100).aspx
+ [vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/91a3f8ae-3152-438a-b5fc-fb37878dd007
+ [InformationBar.cs]:http://github.com/NoahRic/FixMixedTabs/blob/master/InformationBar.cs

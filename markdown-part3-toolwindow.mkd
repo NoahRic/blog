@@ -1,5 +1,7 @@
 <!-- Markdown, part 3 - A tool window previewer -->
 
+*Previous articles in this series: [Part 2 - Writing a classifier][part2], and [Part 1 - Markdown!][part1].*
+
 Well, this part ended up being both easier and considerably harder than I expected, depending on how you look at it.
 
 First, the obligatory screenshot:
@@ -10,7 +12,7 @@ First, the obligatory screenshot:
 
 ## Easy stuff!
 
-So the easy thing in this case turned out to be the actual logic of creating the web browser and changing what it shows.  Wpf comes with a decently handy `WebBrowser` control, with an equally handy (but funnily-named) `NavigateToString`.  To generate the Markdown text, I just call into `Markdown.cs` (instead of `MarkdownParser.cs`; this time, I *do* just want the HTML output), and dump the string wholesale into the browser.
+So the easy thing in this case turned out to be the actual logic of creating the web browser and changing what it shows.  WPF comes with a decently handy `WebBrowser` control, with an equally handy (but funnily-named) `NavigateToString`.  To generate the Markdown text, I just call into `Markdown.cs` (instead of `MarkdownParser.cs`; this time, I *do* just want the HTML output), and dump the string wholesale into the browser.
 
 The updating was also fairly simple.  The preview window is updated a) synchronously when a markdown document gains focus and b) asynchronously after 500 milliseconds of contiguous idle (the effect is that it doesn't update if you are typing fast enough, but updates when you stop typing).  In this way, you don't really have to wait around for it to update, and it feels like it updates when you've finished a thought.  The effect *can* be slightly annoying at times; the images load asynchronously after the rest of the page has displayed, so any images themselves flicker.  Also, the scrolling happens when the `LoadCompleted` event is sent out, which happens only *after* all the images have finished downloading, so adding images at all causes the rest of the scrolling to appear jumpy as well.  Somewhat disconcerting, but not enough of an issue to reduce the utility of the tool window greatly.
 
@@ -28,17 +30,30 @@ The easy part of this feature (using `WebBrowser`, figuring out how to update th
 
 For the sake of anyone else doing this, I'll describe the hurdles I tripped over, and how to get over them without extensive bodily harm:
 
-First, to note: if you are going to do this, it is probably best to create a **Package first** and *then* add the editor extensibility part.  If you create the package first, the *only* thing you need to do (besides adding references for whatever editor assemblies you need) is add a line to your `source.extension.vsixmanfiest`, in the `<Content>` section, that reads:
+**First, to note:** if you are going to do this, it is probably best to create a **Package first** and *then* add the editor extensibility part.  If you create the package first, the *only* thing you need to do (besides adding references for whatever editor assemblies you need) is add a line to your `source.extension.vsixmanfiest`, in the `<Content>` section, that reads:
     
     <MefComponent>|YourProjectName|</MefComponent>
 
-Going in the other direction, as you'll see, is no small feat.
+Going in the other direction, as you'll see, is no small feat.  As such, this information is more of a get-out-of-trouble-once-you-are-there, and not something you should *plan* to do.
 
-## Turning an editor extension project into a package
+*However*, even if you are doing it "the right way", you still may run into [issue #5](#issue5), which will hopefully not be a problem post-Beta 2.
 
-So, the first thing I started with was creating the default Package project, with a tool window, so that I could copy over the pieces I needed into my existing project.  Right away I ran into the first problem, which is that this was throwing an exception every time I did it (very likely from one of the extensions I'm running).  I never did figure out what extension was causing it to fail (and I was pretty tired at this point), so I instead searched for alternate sources of information.
+## Turning an editor extension project into a package ([skip](#finalthoughts))
 
-> **Issue:** can't build default VS Package project to use as a reference for your editor extension project transformation.
+If you don't want to read the complete story, here's a quick list of the issues with links to the fixes/workarounds:
+
+ * [Issue #1](#issue1) - The SDK new VS Package wizard fails in Beta 2.
+ * [Issue #2](#issue2) - Simply adding a `.vsct` file to a project isn't enough to get it to compile.
+ * [Issue #3](#issue3) - Build fails with `No resource file set the resource merger.`
+ * [Issue #4](#issue4) - Project isn't generating a `.pkgdef` file.
+ * [Issue #5](#issue5) - `CreatePkgDef` is failing for projects that have references to editor assemblies, various error messages (some about null references, some about load failures and checking the `LoaderExceptions` property).
+
+### The story (or [skip](#finalthoughts) it)
+
+So, the first thing I started with was creating the default Package project, with a tool window, so that I could copy over the pieces I needed into my existing project.  Right away I ran into the first problem, which is that this was throwing an exception every time I did it.  I've heard from a few other people that I'm not the only one that ran into this, so it may just be an issue with Beta 2.
+
+<div id="issue1"></div>
+> **Issue #1:** can't build default VS Package project to use as a reference for your editor extension project transformation.
 
 > **Work around:** Look at the [Tool Windows SDK samples][sdk-samples] online.  These built just fine on my Beta 2 drop.
 
@@ -52,13 +67,15 @@ Ok, now I've found the content I need, and it looks like I'll need to grab a few
 
 All well and good, until you realize (40 minutes later, for me) that the `.vsct` file isn't actually being compiled correctly.
 
-> **Issue:** just adding a `.vsct` isn't enough to have it actually *compiled* as a `.vsct`.
+<div id="issue2"></div>
+> **Issue #2:** just adding a `.vsct` isn't enough to have it actually *compiled* as a `.vsct`.
 
 > **Fix:** Make sure the `Build Action` for the `.vsct` file is `VSCTCompile`.  You can change this in the Properties tool window (with that file selected).
 
 We're almost to building, except that now I get some error about "No resource file set the resource merger."  This is the *only* problem that I solved relatively quickly, thanks to Google and someone who filed a [Connect bug][connect] about it (with the work-around):
 
-> **Issue:** build fails, error is "No resource file set the resource merger."
+<div id="issue3"></div>
+> **Issue #3:** build fails, error is "No resource file set the resource merger."
 
 > **Fix:** add `<MergeWithCTO>true</MergeWithCTO>` to the project file under the section for the `.resx` file.
 
@@ -66,28 +83,31 @@ Getting closer now.  I ran into issues where it couldn't find one of the `.bmp` 
 
 After another hour or so of trying to figure out why the Package still wasn't getting loaded, I realized that my project wasn't creating a `.pkgdef` file, which is required for the package to set the correct registry keys for VS to know about it.  Of this hour of searching, about 15 minutes was spent trying to find and remove a special little property defined in the `.csproj` file:
 
-> **Issue:** Project isn't creating a pkgdef file.
+<div id="issue4"></div>
+> **Issue #4:** Project isn't creating a pkgdef file.
 
 > **Fix:** Find and remove the line in the `.csproj` file that defines the property `GeneratePkgDefFile` as `false`.
 
-I'm guessing that property is set for all the projects that are editor extensions, since they don't require `.pkgdef` files.  I would have expected CreatePkgDef (or the msbuild task) to be smart enough to run anyways but not actually generate a `.pkgdef` unless you need it, but I guess that isn't how it works.  At least now *you* know what to look for.
+I'm guessing that property is set for all the projects that are editor extensions, since they don't require `.pkgdef` files (the way we use MEF doesn't require it).  I would have expected `CreatePkgDef` (or the msbuild task) to be smart enough to run anyways but not actually generate a `.pkgdef` unless you need it, but I guess that isn't how it works.  At least now *you* know what to look for.
 
-At this point, the CreatePkgDef step was running, but it wouldn't complete successfully and my build would fail.  It mentioned something about checking the `LoaderException` property (which generally means that some assemblies weren't found), but I'd have to debug that tool to figure it out, and the build output was thoroughly unhelpful.
+At this point, the `CreatePkgDef` step was running, but it wouldn't complete successfully and my build would fail.  It mentioned something about checking the `LoaderException` property (which generally means that some assemblies weren't found), but I'd have to debug that tool to figure it out, and the build output was thoroughly unhelpful.
 
-To get some more information, I tried running the tool manually (`CreatePkgDef.exe` comes with the SDK), and discovered that the editor assemblies were all failing to be found.  I'm not sure why, but `CreatePkgDef` apparently was using a different assembly search path than the regular build was, and these assemblies were added as references without any explicit path (just `Microsoft.VisualStudio.Foo`).  Also, at least for Beta 2, these assemblies are *not* in the `GAC`, so whatever you are building needs to know to look in the SDK to find them.
+To get some more information, I tried running the tool manually (`CreatePkgDef.exe` comes with the SDK), and discovered that the editor assemblies were all failing to be found.  I'm not sure why, but it seemed like `CreatePkgDef` apparently was using a different assembly search path than the regular build was, and these assemblies were added as references without any explicit path (just `Microsoft.VisualStudio.Foo` in the `.csproj` file).  Also, at least for Beta 2, these assemblies are *not* in the <abbr title="Global Assembly Cache">GAC</abbr>, so whatever you are building needs to know to look in the SDK to find them.
 
-The workaround for this one felt really hacky, so I apologize for the taste this may leave in your mouth:
+The workaround for this one felt really hacky, but it got me past this final issue:
 
-> **Issue:** `CreatePkgDef` unable to run for projects that reference editor assemblies without qualifying paths (even though the rest of the build steps complete successfully).
+<div id="issue5"></div>
+> **Issue #5:** `CreatePkgDef` unable to run for projects that reference editor assemblies without qualifying paths (even though the rest of the build steps complete successfully).
 
-> **Fix:** Mark all the editor assemblies as `CopyLocal` = `true` in the properties page.  They won't be included in the `.vsix`, which is what you want, but they will be around for `CreatePkgDef` to find.
+> **Fix:** Mark all the editor assemblies as `CopyLocal` = `true` in the properties page for each assembly.  They won't be included in the `.vsix` (which would be undesirable), but they will be around for `CreatePkgDef` to find.
 
 After that, `CreatePkgDef` could run and the Package was loaded successfully.  The only other somewhat awkward code I had to write was the code that allowed the MEF component (namely, the margin) to access the preview window.  It ended up being fairly painless (just using `IVsShell` to access/load the package), though that was after an initial step of creating an intermediate MEF service that `MarkdownPackage` would register with on creation.  In the end, it all looks deceptively simple.
 
-> **Issue:** Started with an editor extension, and tried to migrate VS Package project files over to the editor extension.
+> **Issue #0:** Started with an editor extension, and tried to migrate VS Package project files over to the editor extension.
 
 > **Fix:** Don't do that.  Either start with a VS Package project, if you think you will need one, or migrate your editor extensions *to* the VS Package project when you discover that you do.
 
+<div id="finalthoughts"></div>
 ## Final thoughts and next steps
 
 This was a thoroughly frustrating experience, and a reminder that there is still a lot of work for us to do to make extensibility follow the "pit of success" pattern.  This was a common saying of Rico Mariani, which is to say that success should be so automatic that it is like falling into a pit, instead of something you have to strive to accomplish.  Hopefully, though, my struggles in getting this work will get at least one person unstuck in the future (fingers are crossed).
@@ -98,7 +118,7 @@ At this point, the only real feature that I'm truly missing (from my vim workflo
 
 From now on, then, I'll be working on value-added features, relative to my old workflow, instead of just matching features.  I also think that the other ideas I've listed are of much smaller value than what I've done so far, so I'll probably complete these more for the value of the examples than for the actual benefit to my workflow.
 
-I've also added a bullet point for the **margin** work.  It need some cleanup, pretty icons, and various other options could be helpful (such as being able to disable the auto-update, for if you are using remote desktop or you just don't want to see it all the time).  I'm hoping to get some help with this, since I'm pretty awful at anything interface related (my color choice is also pretty bad, if you haven't figured out yet from the screenshots).
+I've also added a bullet point for the **margin** work.  It needs some cleanup, pretty icons, and various other options could be helpful (such as being able to disable the auto-update, for if you are using remote desktop or you just don't want to see it all the time).  I'm hoping to get some help with this, since I'm pretty awful at anything interface related (my color choice is also pretty bad, if you haven't figured out yet from the screenshots).
 
 And, just to add again &ndash; if you have any ideas for what you'd like to see added, let me know in the comments.
 
@@ -106,9 +126,10 @@ And here's the list!
 
 ##### TODO:
 
+ * Put the extension out on the [VS Gallery][vsgallery]!
  * Clean up the **margin** and add new features/options.
  * Some parts of **Intellisense** &ndash; I'm thinking of doing smart tags for links (like turning what looks like a url into a correct markup link), completion for things like link definitions, and quick info for image references (if I don't do anything cooler for images).
- * <div style="background-color: #FFFF00">**Spell checking support** &ndash; a couple people have built samples that do spell checking, so that would be nice to add, especially since I'm writing prose.</div>
+ * <div style="background-color: #FFFF00">**Spell checking support** &ndash; my teammate Roman built a sample that does spell checking, so that would be nice to add, especially since I'm writing prose.</div>
  * **Syntax support for code blocks** &ndash; this would be kinda cool, though may be of limited utility since most of the code blocks I embed directly into my posts are very tiny, at most a few words.  The larger blocks I tend to put somewhere like <http://gist.github.com>, so that they can be versioned and referenced to as an independent entity.
 
 ##### Done or no longer doing:
@@ -119,6 +140,9 @@ And here's the list!
  * <del>**Syntax support for regular html** &ndash; Markdown lets you use intersperse regular html into your Markdown files, so it would be nice to get these to be correctly syntax highlighted.  This may actually be really simple (just using a `ContentType` that derives from html), but if it isn't, it isn't high on my list, mostly because I don't tend to use it for anything other than anchor tags.</del>
  * <div style="color: #666666">**Inline images** of some sort &ndash; this is now mostly cut, since the preview window gets me most of the value.</div>
 
+ [part1]:http://blogs.msdn.com/noahric/archive/2009/11/12/markdown.aspx
+ [part2]:http://blogs.msdn.com/noahric/archive/2010/01/11/markdown-part-2-writing-a-classifier.aspx
  [Connect]:https://connect.microsoft.com/VisualStudio/feedback/ViewFeedback.aspx?FeedbackID=515485&wa=wsignin1.0
- [MarkdownPreviewToolWindow.cs]:foobar.com
+ [MarkdownPreviewToolWindow.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/ToolWindow/MarkdownPreviewToolWindow.cs
  [sdk-samples]:http://code.msdn.microsoft.com/ToolWindows
+ [vsgallery]:http://visualstudiogallery.msdn.microsoft.com

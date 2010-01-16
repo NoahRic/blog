@@ -15,24 +15,24 @@ The underlying cause of both of these turned out to be the same, which is that t
 
 You can view the [diff on github][gotodef-diff], if you want to see specifically what I mean.
 
- [gotodef-github]:http://github.com/noahric/gotodef
- [gotodef-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b
- [gotodef-diff]:http://github.com/NoahRic/GoToDef/commit/96f6e928d11aacd4076ee6c7278413cda46debeb
-
 ## Triple-click
 
 *[Triple-click on github][tripleclick-github].*<br />
 *Updated [Triple-click on VSGallery][tripleclick-vsgallery].*
 
-This one comes from Chris Dias, who is the Group Program Manager of the Visual Studio Platform team (he's basically chief <abbr title="Program Manager">PM</abbr> of all the PMs that I work with).  He noticed that triple-click in most other applications selects the a line *and the line break*, whereas this extension doesn't include the line break.  That means that if you select a line and then press delete/backspace or cut, it wouldn't actually get rid of the line (in the sense that you'd want).
+This one comes from Chris Dias, who is the Group Program Manager of the Visual Studio Platform team (he's basically chief <abbr title="Program Manager">PM</abbr> of all the PMs that I work with).  He noticed that triple-click in most other applications selects the a line *and the line break*, whereas this extension doesn't include the line break.  That means that if you select a line and then press delete/backspace or cut, it wouldn't actually get rid of the line (in the sense that you'd want).  He also noticed that it just seemed to not work sometimes, though he had no idea how he got into the state.
 
-Also, I wanted to add drag support, to select whole lines at a time after you've clicked (and held the mouse down).  Most other applications support those, though some (like IE) have some strange line-select/word-select hybrid once you start dragging.  For most other applications, it works like word-selection, where the original word/line remains highlighted as the "anchor" of the text you are selecting.
+In addition to the bug fixes, I wanted to add drag support, to select whole lines at a time after you've clicked (and held the mouse down).  Most other applications support those, though some (like IE) have some strange line-select/word-select hybrid once you start dragging.  For most other applications, it works like word-selection, where the original word/line remains highlighted as the "anchor" of the text you are selecting.
 
 The first change was really easy; `ITextLine` has two properties for the extent of a line: `Extent` and `ExtentIncludingLineBreak`.  All I had to do was switch from using the former to the latter.
 
-The second change wasn't too bad, either.  I added handlers for mouse move and left button up (for tracking the state of a drag that started with a triple-click), and then wrote a little piece of logic for determining the extent of the drag, making sure to always include the original line that was selected.
+The second fix was also easy, once I realized the (very dumb) logic error I had made.  Note to self and everyone else &ndash; when computing the coordinates of the mouse relative to an `IWpfTextView`, make sure to *add* the `ViewportTop`, not **subtract** it.
 
-Here's the [diff][tripleclick-diff], if you are curious.
+Drag support wasn't too bad, either.  I added handlers for mouse move and left button up (for tracking the state of a drag that started with a triple-click), and then wrote a little piece of logic for determining the extent of the drag, making sure to always include the original line that was selected.
+
+I also took this opportunity to create an icon and screenshot for this extension.  I'll be writing another article in the near future about icons and screenshots, as I just went through and updated all of them (though haven't uploaded the changes quite yet for everything).
+
+Here's the [diff][tripleclick-diff] for the first bug fix and the drag support, if you are curious.  Here's the [diff][tripleclick-diff2] for fixing the dumb logic error and the new icon/screenshot.
 
 #### Updating
 
@@ -40,10 +40,21 @@ If you haven't already, I'd advise turning on the automatic updating logic in VS
 
     Tools->Options->General->Environment->Extension Manager->Automatically check for updates to installed extensions
 
-Also, if you want to see all the extensions I've installed, you can search directly in the extension manager for `Noah Richards`.  So far, I have four: Triple Click, Go To Definition, Gradient Selection, and Italic comments.  I run all but Gradient Selection locally (I don't mind the flat selection, and I'm using VS inside a VM running on my laptop, so I appreciate the quicker selection model).
+Also, if you want to see all the extensions I've installed, you can search directly in the extension manager for `Noah Richards`.  So far, I have five: [Triple Click][tripleclick-vsgallery], [Go To Definition][gotodef-vsgallery], [Gradient Selection][gradient-vsgallery], [Italic Comments][italic-vsgallery], and [Fix Mixed Tabs][fixmixed-vsgallery] (the newest one).  I run all but Gradient Selection locally (I don't mind the flat selection, and I'm using VS inside a VM running on my laptop, so I appreciate the quicker selection model). My [extensions page][extensions] has more information about each.
 
 And last but not least &ndash; if *you* find bugs in any of these extensions, please let me know in the comments.  No guarantees that I'll get things fixed in a timely manner, but I do read every email and comment sent my way.
 
+ [gotodef-github]:http://github.com/noahric/gotodef
+ [gotodef-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b
+ [gotodef-diff]:http://github.com/NoahRic/GoToDef/commit/96f6e928d11aacd4076ee6c7278413cda46debeb
+
  [tripleclick-github]:http://github.com/noahric/tripleclick
- [tripleclick-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b
- [tripleclick-diff]:http://github.com/NoahRic/TripleClick/commit/6df0e3666688b5feddf7ab459cec19245b2fc17e 
+ [tripleclick-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/2bbdc70c-32f7-4b69-8cff-d8190cae0cc7
+ [tripleclick-diff]:http://github.com/NoahRic/TripleClick/commit/6df0e3666688b5feddf7ab459cec19245b2fc17e
+ [tripleclick-diff2]:http://github.com/NoahRic/TripleClick/commit/057d117eba80ad949b573502904f523f8eebfdee
+
+ [gradient-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7687f71d-49aa-4cbd-b0ad-6f90c9a64572
+ [italic-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0b439a8a-e21a-4e26-b82b-054fbf0acab7
+ [fixmixed-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/91a3f8ae-3152-438a-b5fc-fb37878dd007
+
+ [extensions]:http://blogs.msdn.com/noahric/pages/extensions.aspx

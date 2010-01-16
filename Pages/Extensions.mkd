@@ -1,0 +1,106 @@
+# Visual Studio 2010 Extensions:
+
+You can find all these extensions by searching the [Visual Studio Gallery][vsgallery] for [Noah Richards][search-vsgallery], and the source for each is available on my [github page][github].
+
+ * [Markdown Mode](#markdown)
+ * [Spell Checker](#spell)
+ * [Go To Definition](#gotodef)
+ * [Italic Comments](#italic)
+ * [Triple-click](#tripleclick)
+ * [Fix Mixed Tabs](#fixmixed)
+ * [Gradient Selection](#gradient)
+
+<hr />
+
+<div id="markdown"></div>
+## Markdown Mode
+
+*Coming soon!*
+
+<div style="clear: right"></div><hr /><div id="spell"></div>
+<img src="http://blogs.msdn.com/photos/noahric/images/9949207/original.aspx" style="float: right" />
+## ![][spell-icon] Spell Checking
+
+*Coming Soon!*
+
+<div style="clear: right"></div><hr /><div id="gotodef"></div>
+<img src="http://blogs.msdn.com/photos/noahric/images/9949187/original.aspx" style="float: right" />
+## ![][gotodef-icon] Go To Definition
+
+ * [Original blog post](http://blogs.msdn.com/noahric/archive/2009/07/05/time-spent-in-design.aspx)
+ * [Go To Definition on the VS Gallery][gotodef-vsgallery]
+ * [Source on github][gotodef-github]
+
+
+This extension introduces a behavior found in a couple of other editors (like Eclipse), where holding down the `control` turns identifiers in a file into hyperlinks.  When you click on these hyperlinks, you are taken to the definition or declaration of an identifier or type.  This is the same behavior you get from using the regular `Go To Definition` command (bound to `F12` in Visual Studio), but this extension allows for quick and simple browsing of a codebase by looking through definitions: your left hand never leaves the control key, and your right hand never leaves the mouse.
+
+<div style="clear: right"></div><hr /><div id="italic"></div>
+<img src="http://blogs.msdn.com/photos/noahric/images/9949199/original.aspx" style="float:right" />
+## ![][italic-icon] Italic Comments
+
+ * [Italic Comments on the VS Gallery][italic-vsgallery]
+ * [Source on github][italic-github]
+
+This extension changes comments to use an italic and non-proportional font.  One of the new features in the Visual Studio 2010 editor is that a file can contain runs of text with different fonts, so you can mix proportional and non-proportional fonts like this.  Also, this changes the opacity of certain comments very slightly, showing both the ability to change opacity of fonts dynamically.
+
+Because the Fonts and Colors dialog was not updated for Visual Studio 2010, the only way to make changes like this is through an extension, but you can use the source code to learn how to add something like this to your own extension.
+
+<div style="clear: right"></div><hr /><div id="tripleclick"></div>
+<img src="http://blogs.msdn.com/photos/noahric/images/9949202/original.aspx" style="float: right" />
+## ![][tripleclick-icon] Triple-click
+
+ * [Original blog post](http://blogs.msdn.com/noahric/archive/2009/10/19/beta-2.aspx)
+ * [Triple-click on the VS Gallery][tripleclick-vsgallery]
+ * [Source on github][tripleclick-github]
+
+
+This simple extension makes triple-click select a whole line at a time.  Holding down the third-click and dragging also selects whole lines as you drag around, much line double-click and dragging selects words at a time.
+
+<div style="clear: right"></div><hr /><div id="fixmixed"></div>
+<img src="http://blogs.msdn.com/photos/noahric/images/9949176/original.aspx" style="float: right" />
+## ![][fixmixed-icon] Fix Mixed Tabs
+
+ * [Original blog post](http://blogs.msdn.com/noahric/archive/2010/01/13/new-extension-fix-mixed-tabs.aspx)
+ * [Fix Mixed Tabs on the VS Gallery][fixmixed-vsgallery]
+ * [Source on github][fixmixed-github]
+
+This extension is for cases where a file has a mix of tabs and spaces uses for indentation, which happens sometimes by accident or when multiple people are working together.  The extension offers to help by showing a non-obtrusive margin (*not* a modal dialog), and gives you the option to `Tabify`, `Untabify`, never show the margin again for that file (until the file is re-opened), or just close the margin for now.  The file is re-checked when it is either loaded or saved.
+
+<div style="clear: right"></div><hr /><div id="gradient"></div>
+<img src="http://blogs.msdn.com/photos/noahric/images/9949190/original.aspx" style="float: right" />
+## ![][gradient-icon] Gradient Selection
+
+
+ * [Original blog post](http://blogs.msdn.com/noahric/archive/2009/10/28/gradient-selection.aspx)
+ * [Gradient selection on the VS Gallery][gradient-vsgallery]
+ * [Source on github][gradient-github]
+
+This extension restores the selection gradient from Visual Studio 2010 Beta 1.  After Beta 1, the editor went back to a more traditional/flat selection, due to performance concerns.  Though the gradient can helpful in providing visual clues about the selection and the relative position of the viewport to the body of the selection, using a gradient like this forces the entire selection to redraw every time it changes.  Still, by popular demand, this extension restores the behavior, and you can use the source code to get an idea of how to write you own extension for changing the selection in other ways.
+
+<!-- Links! -->
+
+ [vsgallery]:http://visualstudiogallery.msdn.microsoft.com
+ [github]:http://github.com/noahric
+ [search-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/site/search?f[0].Type=SearchText&f[0].Value=noah+richards&x=0&y=0
+
+<!-- images: -->
+ [fixmixed-icon]:http://blogs.msdn.com/photos/noahric/images/9949164/original.aspx
+ [gotodef-icon]:http://blogs.msdn.com/photos/noahric/images/9949186/original.aspx
+ [gradient-icon]:http://blogs.msdn.com/photos/noahric/images/9949189/original.aspx
+ [italic-icon]:http://blogs.msdn.com/photos/noahric/images/9949196/original.aspx
+ [tripleclick-icon]:http://blogs.msdn.com/photos/noahric/images/9949201/original.aspx
+ [spell-icon]:http://blogs.msdn.com/photos/noahric/images/9949206/original.aspx
+
+<!-- vsgallery links -->
+ [tripleclick-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/2bbdc70c-32f7-4b69-8cff-d8190cae0cc7 
+ [gotodef-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b 
+ [gradient-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7687f71d-49aa-4cbd-b0ad-6f90c9a64572
+ [italic-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0b439a8a-e21a-4e26-b82b-054fbf0acab7
+ [fixmixed-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/91a3f8ae-3152-438a-b5fc-fb37878dd007
+
+<!-- github links -->
+ [tripleclick-github]:http://github.com/noahric/TripleClick
+ [gotodef-github]:http://github.com/noahric/GotoDef
+ [gradient-github]:http://github.com/noahric/GradientSelection
+ [italic-github]:http://github.com/noahric/ItalicComments
+ [fixmixed-github]:http://github.com/noahric/FixMixedTabs

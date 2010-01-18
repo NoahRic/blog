@@ -1,6 +1,9 @@
-<!-- Markdown, part 3 - A tool window previewer -->
+<!-- Markdown, part 3 - A live tool window previewer -->
 
-*Previous articles in this series: [Part 2 - Writing a classifier][part2], and [Part 1 - Markdown!][part1].*
+*This is part of the ["Markdown mode" series](http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx):*
+
+*[Part 2 - Writing a classifier][part2]*<br />
+*[Part 1 - Markdown!][part1]*
 
 Well, this part ended up being both easier and considerably harder than I expected, depending on how you look at it.
 

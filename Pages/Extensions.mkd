@@ -53,7 +53,6 @@ Because the Fonts and Colors dialog was not updated for Visual Studio 2010, the 
  * [Triple-click on the VS Gallery][tripleclick-vsgallery]
  * [Source on github][tripleclick-github]
 
-
 This simple extension makes triple-click select a whole line at a time.  Holding down the third-click and dragging also selects whole lines as you drag around, much line double-click and dragging selects words at a time.
 
 <div style="clear: right"></div><hr /><div id="fixmixed"></div>

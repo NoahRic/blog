@@ -2,7 +2,7 @@
 
 I took a little break from the Markdown work to fix a few bugs and annoyances in my other extensions.
 
-## Go To Definition
+## ![][gotodef-icon] Go To Definition
 
 *[Go To Definition on github][gotodef-github].*<br />
 *Updated [Go To Definition on VSGallery][gotodef-vsgallery].*
@@ -15,7 +15,7 @@ The underlying cause of both of these turned out to be the same, which is that t
 
 You can view the [diff on github][gotodef-diff], if you want to see specifically what I mean.
 
-## Triple-click
+## ![][tripleclick-icon] Triple-click
 
 *[Triple-click on github][tripleclick-github].*<br />
 *Updated [Triple-click on VSGallery][tripleclick-vsgallery].*
@@ -26,7 +26,7 @@ In addition to the bug fixes, I wanted to add drag support, to select whole line
 
 The first change was really easy; `ITextLine` has two properties for the extent of a line: `Extent` and `ExtentIncludingLineBreak`.  All I had to do was switch from using the former to the latter.
 
-The second fix was also easy, once I realized the (very dumb) logic error I had made.  Note to self and everyone else &ndash; when computing the coordinates of the mouse relative to an `IWpfTextView`, make sure to *add* the `ViewportTop`, not **subtract** it.
+The second fix was also easy, once I realized the (very dumb) logic error I had made.  Note to self and everyone else &ndash; when computing the coordinates of the mouse relative to an `IWpfTextView`, make sure to **add** the `ViewportTop`, not *subtract* it.
 
 Drag support wasn't too bad, either.  I added handlers for mouse move and left button up (for tracking the state of a drag that started with a triple-click), and then wrote a little piece of logic for determining the extent of the drag, making sure to always include the original line that was selected.
 
@@ -47,6 +47,8 @@ And last but not least &ndash; if *you* find bugs in any of these extensions, pl
  [gotodef-github]:http://github.com/noahric/gotodef
  [gotodef-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b
  [gotodef-diff]:http://github.com/NoahRic/GoToDef/commit/96f6e928d11aacd4076ee6c7278413cda46debeb
+ [gotodef-icon]:http://blogs.msdn.com/photos/noahric/images/9949186/original.aspx
+ [tripleclick-icon]:http://blogs.msdn.com/photos/noahric/images/9949201/original.aspx
 
  [tripleclick-github]:http://github.com/noahric/tripleclick
  [tripleclick-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/2bbdc70c-32f7-4b69-8cff-d8190cae0cc7

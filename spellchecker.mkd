@@ -1,0 +1,96 @@
+<!-- New extension: Spellchecker -->
+
+*[Download Spellcheck on the VS Gallery][spell-vsgallery].*<br />
+*Get the [source on github][spell-github].*
+
+As I wrote about in my series on [Markdown Mode][markdown-series], one of the features I've missed from vim and many other IDEs is spell check, both in normal code comments (from when I used Eclipse) and in writing plaintext or other mostly-text formats (in vim).
+
+Roman, the editor QA lead, worked on a project back at the beginning of Beta 2 that does just this, but the extension was temporarily lost/delayed due to how busy we've been ever since.  A week or so back, Chris Granger (a PM on our team) posted the extension source on the [VSX samples page][vsx-samples].  A grabbed the code almost immediately, but noticed a few performance issues; since I'm running VS under VMware Fusion on a 2GHz Core 2 Duo Macbook, things that may be a *little* bit slow on beefier machines can be *very* slow on this machine.  Also, Roman's primary use case was testing out the extension with code comments, whereas my primary use (in conjunction with my Markdown extension) is spell checking entire files.
+
+Roman was nice enough to let me work on this extension, and also nice enough to let me post it to the [VS Gallery][spell-vsgallery].
+
+
+## ![][spell-icon] How the extension works
+
+<img src="http://blogs.msdn.com/photos/noahric/images/9949207/original.aspx" style="float: right" />
+
+This extension offers spell checking in the same way as many other applications &ndash; misspelled words show up with a red underline at some delay after typing (so that every partial word you type doesn't appear as a spelling mistake).  To match my other extensions and my experiences writing this type of behavior, I've settled on my normal "500ms of continuous idle", meaning the spell check results will update 500ms after the last character you type, and not *while* you are typing.  Of course, if you pause in the middle of a word and that partial word isn't found in the dictionary, you'll get an underline.  Fixing the word (and then waiting 500ms) will make the squiggle disappear.
+
+<div style="clear: right"></div>
+
+The extension is basically split out into four parts: a component that knows what pieces of text need checking (exposed as an `ITagger<NaturalTextTag>`), the spell checker (an `ITagger<IMisspellingTag>`), the squiggles (an `ITagger<SquiggleTag>`, which will be an `ITagger<IErrorTag>` when the product ships), and the smart tags (an `ITagger<SmartTag>`).
+
+#### Natural text tagger
+
+This component understands what pieces of a file are "natural" text.  It's limited to two different implementations: one for "code" files (files with the code `ContentType`), and one for "plaintext" files.  The code implementation consumes classification information in the file to find all comments and strings, and the plaintext implementation just returns a tag for the entire file.  Here's the [CommentTextTagger.cs][], since it is the only interesting one.
+
+This component is intended to be an extensibility point for *other* components to use as well, though we don't provide a good framework for that.  A few people have thought about it, but nobody decided on a best practice (use an MSI to place the definition assembly in a known place?).
+
+If it was extensible, I'd add a tagger to the Markdown Mode extension to produce `NaturalTextTag`s over everything in the file *except* for URLs and HTML tag content, since those tend to show up as misspellings, and I don't really care that "aspx" isn't found in the dictionary.
+
+This tagger is consumed by the spell checker via an `ITagAggregator<NaturalTextTag>`, so the spelling tagger doesn't know anything beyond that about what to spell check or what types of files it is operating on.  This sounds more complicated than it is, but organizing your extension like this (different tagger implementations that can consume each other and have specialized purposes and knowledge) turns out to be a fairly effective way at keeping everything segmented cleanly.
+
+#### The spell checker
+
+This is, by far, the most complicated portion of the extension.  Here's the source for [SpellingTagger.cs][].
+
+Without getting too much into the details, the general way the tagger works is:
+
+ 1. When edits happen, the tagger notes the full lines over which the edit has happened, and accumulates this information over time.
+ 1. After the magical waiting period (500ms of idle from the last edit), the tagger:
+   * Collects all the changes into a normalized collection, using the handy `NormalizedSnapshotSpanCollection`.
+   * Determines the full lines over the changes (it isn't helpful to spell check *partial* words)
+   * Asks the `ITagAggregator<NaturalTextTag>` for what pieces of that are natural text
+   * Kicks off a background thread to do all the heavy lifting.
+ 1. The background thread removes the misspellings it has over the given lines, spell checks those lines again, then sets the results and raises the `TagsChangedEvent`
+
+The truly ugly part is step #3.  Since the .NET Framework doesn't have a good way to do spell checking, and I didn't want to mess with the licensing and trouble of finding some other spell checking library to use, I use a WPF `TextBox` to do the spell checking.
+
+Take a deep breath, it'll help.
+
+It is truly horrendous to have to do this, and the result is both a) immensely costly, b) thoroughly ugly, and c) means you can't use the `ThreadPool`, because `TextBox` can only be used on an `STA` thread (and thread pool threads are `MTA`).
+
+Spell checking a document of this size, by sticking the entire document directly in the `TextBox`, takes about 15-20 seconds on my laptop, pegging the CPU at 100% the whole time.
+
+To work around this, the tagger does a few things:
+
+ * The obvious one: all parsing happens on a background thread, so as to never block the UI.  Also, the background thread is `BelowNormal` priority, in an effort to keep the UI thread from becoming unresponsive during spell checking (especially initial checking, which goes over the entire file).
+ * Roman discovered and then I re-discovered this: if you break up the text by just whitespace before sticking it in the `TextBox`, it takes the total time down to about 5 seconds (at 100% CPU).  Still awful, but better.  It appears (from profiling) that the vast majority of the time in spell checking ends up in WPF's NaturalText navigation (the editor also has a natural text navigator, but it isn't the same).
+ * The tagger works a line at a time, which allows results to show up as the file is being parsed, instead of waiting the full 5 seconds or more to show anything.  There is some overhead here, but it pales in comparison to the cost of the spell checking itself.
+ * I've tried a couple of other optimizations to see if it would help, such as not requesting the suggestions until they are needed (likely by taking the misspelled word, sticking it in a new `TextBox`, and asking for the suggestions again.  It doesn't help.
+
+Bleh.
+
+Anyways, this tagger produces `IMisspellingTag`, which contains just a list of suggestions (as `string`s).
+
+#### The squiggle tagger
+
+This one is incredibly simple ([SquiggleTagger.cs][]: it just returns the results of calling into its `ITagAggregator<IMisspellingTag>`, and forwards on the `TagsChanged` events from that aggregator to its own `TagsChanged` event.
+
+#### The smart tag tagger
+
+This one is almost as simple ([SpellSmartTagger.cs][]) as the squiggle tagger, though there is a bit of extra work around creating `ISmartTagAction` implementations.  For the purposes of this extension, there are two: one type of action for suggested spellings (and one action returned for each smart tag for each suggestion), and one type of action for "Ignore All" (and always exactly one of these per smart tag session).
+
+If the user selects a suggestion, then the smart tag just replaces the `SnapshotSpan` that it got from the `ITagAggregator<IMisspellingTag>` with the suggestion string.  If the user selects `IgnoreAll`, the smart tag actions calls into a service (unmentioned until now) that's sole purpose it to maintain a list of ignored words and write/load them to/from disk for persistence.  This service is consumed by the spell checker (so it can know what to ignore) and this component (so it can add new words to the ignore list) only.
+
+## Final thoughts
+
+The final result is acceptable, and I've already been greatly happy with the result in writing the last few blog articles.  The performance is still pretty crappy overall, and the mechanism of using a `TextBox` sets my teeth on edge, but it doesn't really detract from the value overall.  It did get more useful over time, as I added more and more words to the ignored list.
+
+Also, one of the more recent "features" was to make the spell checker skip words in CamelCase (either PascalCase or mixedCase), since these words generally refer to types.  I also tried out a version that spell checked the individual "words" in CamelCase word-combinations, but the correction options for that got a bit complicated.  Michael, another developer on the editor team, had some good ideas for what the behavior should be, but I chickened-out at the thought of getting that behavior exactly right when I really don't find myself needing it.
+
+So, if you get a chance, please try this out!  I hope this article has set your expectations in regards to performance sufficiently low, though the truth is that I don't notice the performance issues at all.
+
+
+ [markdown-series]:http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx
+ [vsx-samples]:http://code.msdn.microsoft.com/vsx
+
+<!-- images -->
+ [spell-icon]:http://blogs.msdn.com/photos/noahric/images/9949206/original.aspx
+
+<!-- github links -->
+ [spell-github]:http://github.com/noahric/spellchecker
+ [SpellingTagger.cs]:http://github.com/NoahRic/Spellchecker/blob/master/Spelling/SpellingTagger.cs
+ [SquiggleTagger.cs]:http://github.com/NoahRic/Spellchecker/blob/master/Squiggles/SquiggleTagger.cs
+ [SpellSmartTagger.cs]:http://github.com/NoahRic/Spellchecker/blob/master/SmartTag/SpellSmartTagger.cs
+ [CommentTextTagger.cs]:http://github.com/NoahRic/Spellchecker/blob/master/NaturalTextTaggers/CommentTextTagger.cs

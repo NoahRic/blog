@@ -10,12 +10,19 @@ You can find all these extensions by searching the [Visual Studio Gallery][vsgal
  * [Fix Mixed Tabs](#fixmixed)
  * [Gradient Selection](#gradient)
 
-<hr />
+<div style="clear: right"></div><hr /><div id="markdown"></div>
+<img src="http://blogs.msdn.com/photos/noahric/images/9952782/original.aspx" style="float: right" />
+## ![][markdown-icon] Markdown Mode (*alpha*)
 
-<div id="markdown"></div>
-## Markdown Mode
+ * [Markdown series][markdown-series] of blog posts.
+ * [Markdown Mode on the VS Gallery][markdown-vsgallery]
+ * [Source on github][markdown-github]
 
-*Coming soon!*
+This is an extension for writing files in the [Markdown][markdown] syntax.  It currently (version 0.1) has the following features:
+
+ * Syntax highlighting (for Markdown and HTML)
+ * A live preview window of the file you are editing
+ * A rudimentary margin with buttons for showing the preview window and copying the HTML-ized version of the file you are editing to the clipboard.
 
 <div style="clear: right"></div><hr /><div id="spell"></div>
 <img src="http://blogs.msdn.com/photos/noahric/images/9949207/original.aspx" style="float: right" />
@@ -81,6 +88,8 @@ This extension restores the selection gradient from Visual Studio 2010 Beta 1.  
  [vsgallery]:http://visualstudiogallery.msdn.microsoft.com
  [github]:http://github.com/noahric
  [search-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/site/search?f[0].Type=SearchText&f[0].Value=noah+richards&x=0&y=0
+ [markdown]:http://daringfireball.net/projects/markdown/
+ [markdown-series]:http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx
 
 <!-- images: -->
  [fixmixed-icon]:http://blogs.msdn.com/photos/noahric/images/9949164/original.aspx
@@ -89,6 +98,7 @@ This extension restores the selection gradient from Visual Studio 2010 Beta 1.  
  [italic-icon]:http://blogs.msdn.com/photos/noahric/images/9949196/original.aspx
  [tripleclick-icon]:http://blogs.msdn.com/photos/noahric/images/9949201/original.aspx
  [spell-icon]:http://blogs.msdn.com/photos/noahric/images/9949206/original.aspx
+ [markdown-icon]:http://blogs.msdn.com/photos/noahric/images/9952781/original.aspx
 
 <!-- vsgallery links -->
  [tripleclick-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/2bbdc70c-32f7-4b69-8cff-d8190cae0cc7 
@@ -96,6 +106,7 @@ This extension restores the selection gradient from Visual Studio 2010 Beta 1.  
  [gradient-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7687f71d-49aa-4cbd-b0ad-6f90c9a64572
  [italic-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0b439a8a-e21a-4e26-b82b-054fbf0acab7
  [fixmixed-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/91a3f8ae-3152-438a-b5fc-fb37878dd007
+ [markdown-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0855e23e-4c4c-4c82-8b39-24ab5c5a7f79
 
 <!-- github links -->
  [tripleclick-github]:http://github.com/noahric/TripleClick
@@ -103,3 +114,4 @@ This extension restores the selection gradient from Visual Studio 2010 Beta 1.  
  [gradient-github]:http://github.com/noahric/GradientSelection
  [italic-github]:http://github.com/noahric/ItalicComments
  [fixmixed-github]:http://github.com/noahric/FixMixedTabs
+ [markdown-github]:http://github.com/noahric/markdownmode

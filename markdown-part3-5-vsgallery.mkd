@@ -1,0 +1,33 @@
+<!-- Markdown, part 3.5 - Posted on VSGallery -->
+
+*This is part of the ["Markdown mode" series](http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx):*
+
+*[Part 3 - A live tool window previewer][part3]*<br />
+*[Part 2 - Writing a classifier][part2]*<br />
+*[Part 1 - Markdown!][part1]*
+
+I'm in a jolly mood, having just bought a new sofa and chair at IKEA and getting rid of my old one (it was the nastiest piece of furniture in the entire apartment), so I decided to share this feeling of getting something new and shiny.  To be clear, though, I am not buying you a sofa at IKEA.
+
+Instead, I've posted out an alpha version of [Markdown Mode on the vsgallery][markdown-vsgallery]!  Not quite as cool as a new sofa, I know, but I hope you'll enjoy it anyways.
+
+Here's another quick screenshot of Markdown Mode version 0.1:
+
+<a href="http://blogs.msdn.com/photos/noahric/images/9952632/original.aspx">
+  <img src="http://blogs.msdn.com/photos/noahric/images/9952632/425x266.aspx" alt="Markdown Mode v0.1" />
+</a>
+
+The new color scheme is something Chris Granger wrote; if anyone is interested in it, I'll forward those requests on to him.
+
+You can also read/download the [source on github][markdown-github].  At this stage, while I'm still doing fairly active development, there will changes there that I won't push out to the VS Gallery immediately.
+
+The one thing that I really don't have a great idea for yet is the icon for Markdown Mode.  There doesn't seem to be an *official* Markdown icon, and I doubt I'd have the license or talent to modify it for my purposes anyways, so I just stuck with a slightly stylized "mark" - "down" (split over two lines, to accommodate the 32x32 size that the extension manager uses): ![][markdown-icon].  I've set the screenshot to a 198x198 pixel clip of the screenshot I posted above.
+
+If you get a chance to try it out, let me know on twitter (@noahsmark).  I'd love to hear any feedback you may have.
+
+ [part1]:http://blogs.msdn.com/noahric/archive/2009/11/12/markdown.aspx
+ [part2]:http://blogs.msdn.com/noahric/archive/2010/01/11/markdown-part-2-writing-a-classifier.aspx
+ [part3]:http://blogs.msdn.com/noahric/archive/2010/01/18/markdown-part-3-a-tool-window-previewer.aspx
+ [markdown-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0855e23e-4c4c-4c82-8b39-24ab5c5a7f79
+ [markdown-github]:http://github.com/NoahRic/MarkdownMode
+ [vsgallery]:http://visualstudiogallery.msdn.microsoft.com
+ [markdown-icon]:http://blogs.msdn.com/photos/noahric/images/9952781/original.aspx

@@ -5,14 +5,13 @@
 
 As I wrote about in my series on [Markdown Mode][markdown-series], one of the features I've missed from vim and many other IDEs is spell check, both in normal code comments (from when I used Eclipse) and in writing plaintext or other mostly-text formats (in vim).
 
-Roman, the editor QA lead, worked on a project back at the beginning of Beta 2 that does just this, but the extension was temporarily lost/delayed due to how busy we've been ever since.  A week or so back, Chris Granger (a PM on our team) posted the extension source on the [VSX samples page][vsx-samples].  A grabbed the code almost immediately, but noticed a few performance issues; since I'm running VS under VMware Fusion on a 2GHz Core 2 Duo Macbook, things that may be a *little* bit slow on beefier machines can be *very* slow on this machine.  Also, Roman's primary use case was testing out the extension with code comments, whereas my primary use (in conjunction with my Markdown extension) is spell checking entire files.
+Roman, the editor QA lead, worked on a project back at the beginning of Beta 2 that does just this, but the extension was temporarily lost/delayed due to how busy we've been ever since.  A week or so back, Chris Granger (a PM on our team) posted the extension source on the [VSX samples page][vsx-samples].  I grabbed the code almost immediately, but noticed a few performance issues; since I'm running VS under VMware Fusion on a 2GHz Core 2 Duo Macbook, things that may be a *little* bit slow on beefier machines can be *very* slow on this machine.  Also, Roman's primary use case was testing out the extension with code comments, whereas my primary use (in conjunction with my Markdown extension) is spell checking entire files.
 
-Roman was nice enough to let me work on this extension, and also nice enough to let me post it to the [VS Gallery][spell-vsgallery].
-
+Roman was nice enough to let me work on this extension, and also nice enough to let me post it to the [VS Gallery][spell-vsgallery], so many thanks to him.
 
 ## ![][spell-icon] How the extension works
 
-<img src="http://blogs.msdn.com/photos/noahric/images/9949207/original.aspx" style="float: right" />
+<img src="http://blogs.msdn.com/photos/noahric/images/9949207/original.aspx" style="float: right" border="1px" />
 
 This extension offers spell checking in the same way as many other applications &ndash; misspelled words show up with a red underline at some delay after typing (so that every partial word you type doesn't appear as a spelling mistake).  To match my other extensions and my experiences writing this type of behavior, I've settled on my normal "500ms of continuous idle", meaning the spell check results will update 500ms after the last character you type, and not *while* you are typing.  Of course, if you pause in the middle of a word and that partial word isn't found in the dictionary, you'll get an underline.  Fixing the word (and then waiting 500ms) will make the squiggle disappear.
 
@@ -79,9 +78,11 @@ The final result is acceptable, and I've already been greatly happy with the res
 
 Also, one of the more recent "features" was to make the spell checker skip words in CamelCase (either PascalCase or mixedCase), since these words generally refer to types.  I also tried out a version that spell checked the individual "words" in CamelCase word-combinations, but the correction options for that got a bit complicated.  Michael, another developer on the editor team, had some good ideas for what the behavior should be, but I chickened-out at the thought of getting that behavior exactly right when I really don't find myself needing it.
 
-So, if you get a chance, please try this out!  I hope this article has set your expectations in regards to performance sufficiently low, though the truth is that I don't notice the performance issues at all.
+I find that organizing the code into taggers like this fits well with my mental model of how to piece these together (it probably should, since I wrote the original implementation of tagging, though it's gotten love from quite a few people since then).  It feels somewhat UNIX-y to me: separate pieces of logic understand how to do only one thing and communicate with other tools by a well-defined (and usually very simple) channel.  I'm sure that could be used to describe a lot of things, but I tend to associate that with UNIX tools and communicating via plain text over pipes.
 
+So, if you get a chance, please try this out!  Performance isn't expected to be great, though the truth is that I don't notice it that much anymore, besides the initial and still somewhat painful parse.
 
+ [spell-vsgallery]
  [markdown-series]:http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx
  [vsx-samples]:http://code.msdn.microsoft.com/vsx
 

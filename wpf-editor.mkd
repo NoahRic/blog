@@ -1,0 +1,46 @@
+<!-- The "WPF Editor" -->
+
+The phrase "the WPF editor" comes up a lot as a somewhat official name for the new editor in Visual Studio 2010. A good deal of this is probably because we called it that quite a bit at the beginning, as a way of distinguishing it from the editor in past versions of VS (which certainly doesn't use WPF for its rendering).
+
+However, the name has taken on life of it's own, and the fact that VS now uses WPF has become the primary straw man of why VS is slow.  Rico [wrote about it][rico-blog], and I also [wrote about other performance issues][me-perf], mostly since we've all seen lots of comments to this effect on blogs, twitter, StackOverflow, Slashdot, and other sites.
+
+I also worry, ever so slightly, that people start to assume a few things about the editor from the name; either that we called it that because it was *the* most important characteristic of the new editor, or because it was something inherent to the architecture or implementation of the new editor. In my opinion, the first isn't really true, and the latter certainly isn't.
+
+I know that in my first post about the editor, I certainly called out that it uses WPF (and used the un-artful phrase "The editor is written *using* WPF", emphasis added), which sounds like we built it *on top of* WPF, which really isn't the case.  We also received a few Connect bugs since the CTP asking for an option to turn back on the ol' HWND-based rendering, as if the new editor was just a sparkly, gradient-y new veneer for the existing editor.  In an effort to be part of the solution and not part of the problem (as GI Joe cartoon taught me growing up), here's my take on things.
+
+## Foundations
+
+I think there are primarily two foundations of the editor. The first, which was historically foundational as well as architecturally foundational, is the use of a **component model** for connecting the various services and extensions in the editor. While there are some undesirable consequences to that decision, I'm still pretty firmly in the "that was a good idea" camp on that one. For example, when you create a WPF text view, do you really want to know that there are about 14 other services that it requires to work? I would get tired of typing out that constructor. And, yes, there are alternative ways of doing that kind of hookup without requiring a messy client API, but the component model one seems to be one of the cleaner ones overall.
+
+The practical implication of this decision is that it's generally easier for us to create a publicly consumable service, when some logic needs to be shared between multiple components, than it is to make a privately callable API.  Because of this, the surface area of the editor that we build on when adding new features is virtually the same as the surface area extenders can build on.  There are a few exceptions to this rule, but those are mostly APIs that we explicitly took out of the public surface area because of considerations like the cost to support them and the hope/plan to come up with something better in the future.
+
+The second foundation, which is actually *not* historically foundational, is the data layer and the use of **snapshots** throughout. In general, the data layer has some interesting characteristics, like using a lot of functional (non-mutable) data structures, and useful services, like projection and the various types of tracking and mapping operations available. There's a certain amount of complexity involved in that, which is probably the biggest detractor (it can be difficult to get the edge cases of projection correct; we're still working out better ways to do it as we go along), but the data layer has a strong foundation that will allow us to continue to build quality layers and services on top of it.
+
+## Whadda bout WPF?
+
+
+WPF is also an important part of the new editor, in that it allowed us to provide interesting and useful points of extensibility. The very obvious one is the ability for extensions to create their own **adornment layers**, which are just WPF `Canvas` elements that you can stick UI elements on (plus a little bit of help from the editor in handling scrolling, text changes, etc.). I certainly wouldn't want to have to recreate adornment layers in, say, WinForms, though that is exactly what many immersive extensions have had to do, traditionally. Plug-ins like ReSharper, DevExpress, and Code Rush have had to do ridiculous things to augment the UI in the way they do (Mark Miller from DevExpress gave an educational [interview about it on Hanselminutes][interview] awhile back). Compare that to some of the samples and extensions people are writing against the new editor now, and it's amazing what you can do in less than 50 lines of code and without a week and half of figuring out the correct order of window messages and reverse-engineering the innards of the old editor's painting code.
+
+So WPF provides a cleaner model for this type of (re)architecture and extensibility in the UI layer.
+
+
+## The point is: <u>extensibility</u>
+
+There are a few important benefits of this pervasive extensibility:
+
+First, it allows users to customize and add value to the product that many use for at least 8 hours a day, and (hopefully) to share that value with others (optionally monetized, of course).  Also, because the barrier to entry has dropped significantly, it no longer takes a team of people weeks and months to make moderately complex extensions to the product.  Granted, there are still rough edges and bugs to be found and squashed, but these should be minor speed bumps compared to the major roadblocks of the old editor.
+
+Second, it allows us, as a product team, to add value to the product more often than every two years or more for a release cycle.  Like the [Spell Checker][spell-vsgallery] extension I just wrote and [blogged about][spell-post], I can share this out with users *now*, instead of waiting another however-many years until the next version of Visual Studio.  Also, if there are bugs in that component (like the deadlock that I just fixed in version 1.1 of the extension), I can patch it immediately, and not wait for a service pack to come along.
+
+I hope that the end result of this is a better experience using Visual Studio.  I want the product to get to the point that, like when I'm using vim, I can think of a feature that I'm missing and find it within about five minutes of asking Google about it (like the vim markdown mode that I used up until I wrote my Markdown Mode extension for Visual Studio).
+
+So, to recap:
+
+ * We didn't rewrite the editor *in order to switch to WPF*.  We rewrote the editor to provide a number of useful features (of which WPF happens to be one of them).
+ * We use WPF for the benefits it provides beyond what WinForms could easily do, but it 
+
+  [spell-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7c8341f1-ebac-40c8-92c2-476db8d523ce
+  [spell-post]:http://blogs.msdn.com/noahric/archive/2010/01/28/new-extension-spell-checker.aspx
+  [me-perf]:http://blogs.msdn.com/noahric/archive/2009/06/06/editor-perf-markers-vs-tracking-spans.aspx
+  [interview]:http://hanselminutes.com/default.aspx?showID=194
+  [rico-blog]:http://blogs.msdn.com/ricom/archive/2009/06/05/visual-studio-2010-performance-part-2-text-editor.aspx

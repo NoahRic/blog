@@ -26,9 +26,15 @@ This is an extension for writing files in the [Markdown][markdown] syntax.  It c
 
 <div style="clear: right"></div><hr /><div id="spell"></div>
 <img src="http://blogs.msdn.com/photos/noahric/images/9949207/original.aspx" style="float: right" />
-## ![][spell-icon] Spell Checking
+## ![][spell-icon] Spell Checker
 
-*Coming Soon!*
+ * [Original blog post](http://blogs.msdn.com/noahric/archive/2010/01/28/new-extension-spell-checker.aspx)
+ * [Spell Checker on the VS Gallery][spell-vsgallery]
+ * [Source on github][spell-github]
+
+This extension, written by Roman Golovin and I, provides spell checking support for comments and string in code files and for all content in plain text files.  Spelling errors show up with squiggles and use smart tags for suggested fixes (or to ignore that error).  Smart tags can be activated with ctrl-. (period).
+
+This extension mixes well with [Markdown Mode](#markdown), providing spell checking while editing markdown files.
 
 <div style="clear: right"></div><hr /><div id="gotodef"></div>
 <img src="http://blogs.msdn.com/photos/noahric/images/9949187/original.aspx" style="float: right" />
@@ -107,6 +113,7 @@ This extension restores the selection gradient from Visual Studio 2010 Beta 1.  
  [italic-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0b439a8a-e21a-4e26-b82b-054fbf0acab7
  [fixmixed-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/91a3f8ae-3152-438a-b5fc-fb37878dd007
  [markdown-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0855e23e-4c4c-4c82-8b39-24ab5c5a7f79
+ [spell-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7c8341f1-ebac-40c8-92c2-476db8d523ce
 
 <!-- github links -->
  [tripleclick-github]:http://github.com/noahric/TripleClick
@@ -115,3 +122,4 @@ This extension restores the selection gradient from Visual Studio 2010 Beta 1.  
  [italic-github]:http://github.com/noahric/ItalicComments
  [fixmixed-github]:http://github.com/noahric/FixMixedTabs
  [markdown-github]:http://github.com/noahric/markdownmode
+ [spell-github]:http://github.com/noahric/spellchecker

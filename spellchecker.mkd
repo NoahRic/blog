@@ -25,7 +25,7 @@ This component understands what pieces of a file are "natural" text.  It's limit
 
 This component is intended to be an extensibility point for *other* components to use as well, though we don't provide a good framework for that.  A few people have thought about it, but nobody decided on a best practice (use an MSI to place the definition assembly in a known place?).
 
-If it was extensible, I'd add a tagger to the Markdown Mode extension to produce `NaturalTextTag`s over everything in the file *except* for URLs and HTML tag content, since those tend to show up as misspellings, and I don't really care that "aspx" isn't found in the dictionary.
+If it was extensible, I'd add a tagger to the Markdown Mode extension to produce `NaturalTextTag`s over everything in the file *except* for URLs and HTML tag content, since those tend to show up as misspellings, and I don't really care that "aspx" isn't found in the dictionary.  As it is, I just made the `markdown` content type use `plaintext` as one of its base types, which gets the "check the entire file" behavior.
 
 This tagger is consumed by the spell checker via an `ITagAggregator<NaturalTextTag>`, so the spelling tagger doesn't know anything beyond that about what to spell check or what types of files it is operating on.  This sounds more complicated than it is, but organizing your extension like this (different tagger implementations that can consume each other and have specialized purposes and knowledge) turns out to be a fairly effective way at keeping everything segmented cleanly.
 
@@ -64,13 +64,21 @@ Anyways, this tagger produces `IMisspellingTag`, which contains just a list of s
 
 #### The squiggle tagger
 
-This one is incredibly simple ([SquiggleTagger.cs][]: it just returns the results of calling into its `ITagAggregator<IMisspellingTag>`, and forwards on the `TagsChanged` events from that aggregator to its own `TagsChanged` event.
+This one is incredibly simple ([SquiggleTagger.cs][]): it just returns the results of calling into its `ITagAggregator<IMisspellingTag>`, and forwards on the `TagsChanged` events from that aggregator to its own `TagsChanged` event.
 
 #### The smart tag tagger
 
-This one is almost as simple ([SpellSmartTagger.cs][]) as the squiggle tagger, though there is a bit of extra work around creating `ISmartTagAction` implementations.  For the purposes of this extension, there are two: one type of action for suggested spellings (and one action returned for each smart tag for each suggestion), and one type of action for "Ignore All" (and always exactly one of these per smart tag session).
+This one ([SpellSmartTagger.cs][]) is almost as simple as the squiggle tagger, though there is a bit of extra work around creating `ISmartTagAction` implementations.  For the purposes of this extension, there are two: one type of action for suggested spellings (and one action returned for each smart tag for each suggestion), and one type of action for "Ignore All" (and always exactly one of these per smart tag session).
 
 If the user selects a suggestion, then the smart tag just replaces the `SnapshotSpan` that it got from the `ITagAggregator<IMisspellingTag>` with the suggestion string.  If the user selects `IgnoreAll`, the smart tag actions calls into a service (unmentioned until now) that's sole purpose it to maintain a list of ignored words and write/load them to/from disk for persistence.  This service is consumed by the spell checker (so it can know what to ignore) and this component (so it can add new words to the ignore list) only.
+
+## ...and a bug workaround
+
+There's a bug in Beta 2 that shows up if you create a custom tag type (your own object that inherits from `ITag`); this sample does this for the `NaturalTextTag` and `IMisspellingTag`.  Because the export for an `ITaggerProvider` requires a `TagType` attribute, which stores the actual type of the tag (e.g. `[TagType(typeof(NaturalTextTag))]`), the MEF cache gets a bit confused and angry when it tries to load that metadata if the assembly the type comes from hasn't been loaded yet.
+
+You can work around this in Beta 2 by adding a pkgdef file that basically forces your module to load at startup; see [SpellChecker.pkgdef][] (also, that GUID is just a random GUID; it doesn't match up with any other value).
+
+I believe this is fixed post Beta 2, so it won't be a worry for much longer.
 
 ## Final thoughts
 
@@ -82,7 +90,7 @@ I find that organizing the code into taggers like this fits well with my mental 
 
 So, if you get a chance, please try this out!  Performance isn't expected to be great, though the truth is that I don't notice it that much anymore, besides the initial and still somewhat painful parse.
 
- [spell-vsgallery]
+ [spell-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7c8341f1-ebac-40c8-92c2-476db8d523ce
  [markdown-series]:http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx
  [vsx-samples]:http://code.msdn.microsoft.com/vsx
 
@@ -95,3 +103,4 @@ So, if you get a chance, please try this out!  Performance isn't expected to be 
  [SquiggleTagger.cs]:http://github.com/NoahRic/Spellchecker/blob/master/Squiggles/SquiggleTagger.cs
  [SpellSmartTagger.cs]:http://github.com/NoahRic/Spellchecker/blob/master/SmartTag/SpellSmartTagger.cs
  [CommentTextTagger.cs]:http://github.com/NoahRic/Spellchecker/blob/master/NaturalTextTaggers/CommentTextTagger.cs
+ [SpellChecker.pkgdef]:http://github.com/NoahRic/Spellchecker/blob/master/SpellChecker.pkgdef

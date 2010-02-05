@@ -1,0 +1,28 @@
+<!-- More bug fixes -->
+
+I've had a really busy week this week (I'll hopefully be able to share more about that in the near future), so apologies that I missed my post on Monday.  I'm also about to head out for a little mini-vacation tomorrow afternoon, but I decided to sneak a quick post in about a few of the recent bug fixes I made.  These have already been pushed out to the [Visual Studio Gallery][vsgallery]; if you've downloaded them, stop over to the Extension Manager to download the updates.
+
+## ![][spell-icon] Spell checker
+
+This one was a silly deadlock, where the background thread would notice that it was out of date and try to kick off a new update thread, but was trying to do this while holding the same lock that the UI thread would try to grab to start the background thread.  No fun.
+
+Here's the [fix on github][spell-fix], which was just to `BeginInvoke` the call back to the UI thread (asynchronously) instead of directly `Invoke`-ing.  This allows the background thread to release the lock before the foreground thread goes at it.
+
+## ![][gradient-icon] Gradient selection and ![][italic-icon] Italic comments
+
+The changes here were to fix bugs that would crop up when these extensions were installed together.  More generally, these extensions have the possibility of conflicting with other extensions that update editor or classification format maps dynamically, which these both do.
+
+I modified both to do some quick checking before updating format maps to see if formatting information is already correct, and to avoid the update if it is.  This keeps everyone who uses the format map from forcefully refreshing when these values are changed (like the `IWpfTextView`, which queues a layout because of it), and keeps each extension from repeatedly editing the format map in response to the other.  There is still the possibility that two extensions writing the same value could get into "fights" if you aren't too careful, but these extensions don't actually try to change the same values, so it isn't really a problem here.
+
+Here are the fixes for [gradient selection][gradient-fix] and [italic comments][italic-fix].
+
+ [vsgallery]:http://visualstudiogallery.msdn.microsoft.com
+
+ [gradient-icon]:http://blogs.msdn.com/photos/noahric/images/9949189/original.aspx
+ [gradient-fix]:http://github.com/NoahRic/GradientSelection/commit/3d81607c9d226a97472deadcc82a7e2f5bb22d29
+
+ [italic-icon]:http://blogs.msdn.com/photos/noahric/images/9949196/original.aspx
+ [italic-fix]:http://github.com/NoahRic/ItalicComments/commit/24a2fa2257d773ab50af68e6305869b075a1a9bf
+
+ [spell-icon]:http://blogs.msdn.com/photos/noahric/images/9949206/original.aspx
+ [spell-fix]:http://github.com/NoahRic/Spellchecker/commit/bf600fd44a4c6ac5f8834a492ffab2d591827ce3

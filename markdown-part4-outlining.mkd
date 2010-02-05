@@ -1,0 +1,33 @@
+<!-- Markdown, part 4 - Outlining -->
+
+*This is part of the ["Markdown mode" series](http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx):*
+
+*[Part 3.5 - Posted on the VS Gallery][part4]*<br />
+*[Part 3 - A live tool window previewer][part3]*<br />
+*[Part 2 - Writing a classifier][part2]*<br />
+*[Part 1 - Markdown!][part1]*
+
+##### TODO:
+ 
+ * Clean up the **margin** and add new features/options.
+ * Some parts of **Intellisense** &ndash; I'm thinking of doing smart tags for links (like turning what looks like a url into a correct markup link), completion for things like link definitions, and quick info for image references (if I don't do anything cooler for images).
+ * **Syntax support for code blocks** &ndash; this would be kinda cool, though may be of limited utility since most of the code blocks I embed directly into my posts are very tiny, at most a few words.  The larger blocks I tend to put somewhere like <http://gist.github.com>, so that they can be versioned and referenced to as an independent entity.
+
+##### Done or no longer doing:
+
+ * <del>**Outlining support**</del>
+ * <del>**Spell checking support** &ndash; my teammate Roman built a sample that does spell checking, so that would be nice to add, especially since I'm writing prose.</del>
+ * <del>Put the extension out on the [VS Gallery][vsgallery]!</del>
+ * <del>**Syntax coloring** (the obvious one); things like bold, italics, links, pre blocks and code blocks, etc.</del>
+ * <del>Turn URL labels into **clickable hyperlinks** &ndash; this is pretty easy to do with the new URL tagging support in the editor.</del>
+ * <del>A tool window for **showing the current output** (as a webpage) of the buffer I'm editing, updating live while I'm editing it.  Alternatively, this may be just another document or a margin, depending on where I end up.  I'm not very good at visual schtuff, so it'll probably be as simple as it can be and still get the job done.</del>
+ * <del>**Syntax support for regular html** &ndash; Markdown lets you use intersperse regular html into your Markdown files, so it would be nice to get these to be correctly syntax highlighted.  This may actually be really simple (just using a `ContentType` that derives from html), but if it isn't, it isn't high on my list, mostly because I don't tend to use it for anything other than anchor tags.</del>
+ * <div style="color: #666666">**Inline images** of some sort &ndash; this is now mostly cut, since the preview window gets me most of the value.</div>
+
+ [part1]:http://blogs.msdn.com/noahric/archive/2009/11/12/markdown.aspx
+ [part2]:http://blogs.msdn.com/noahric/archive/2010/01/11/markdown-part-2-writing-a-classifier.aspx
+  [part3]:http://blogs.msdn.com/noahric/archive/2010/01/18/markdown-part-3-a-tool-window-previewer.aspx
+ [Connect]:https://connect.microsoft.com/VisualStudio/feedback/ViewFeedback.aspx?FeedbackID=515485&wa=wsignin1.0
+ [MarkdownPreviewToolWindow.cs]:http://github.com/NoahRic/MarkdownMode/blob/master/ToolWindow/MarkdownPreviewToolWindow.cs
+ [sdk-samples]:http://code.msdn.microsoft.com/ToolWindows
+ [vsgallery]:http://visualstudiogallery.msdn.microsoft.com

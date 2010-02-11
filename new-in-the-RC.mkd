@@ -1,0 +1,68 @@
+<!-- What's new for extenders in the RC?-->
+
+Welcome to the Visual Studio 2010 RC!
+
+This post is for everyone updating an extension from Beta 2, though it may have some points of interest for people who want to write a new extension against the RC (and the final, shipping version of Visual Studio 2010).
+
+For reference, here is ["What's new in Beta 2"][new-beta2], which will get referenced a couple times in this article.
+
+## 1 - `[Import] System.IServiceProvider` &rArr; `SVsServiceProvider`
+
+The service provider import was new in Beta 2, and simplifies many usage scenarios where you need to get to Visual Studio services that aren't available through MEF (basically, anything that isn't a part of the editor).  The only change in the RC is that the type is no longer `System.IServiceProvider`; instead, it uses `SVsServiceProvider`, which is defined in `Microsoft.VisualStudio.Shell.Immutable.10.0.dll` (you'll probably have to add a reference for this).  The type is actually just `IServiceProvider`, so you don't need to change any code other than the imported type.  However, if you *don't* update the type you `[Import]`, then **your export will never be used**, since MEF can't satisfy all your import requirements (by default, imports are *required*, unless marked optional).
+
+## 2 - `IEditorOperations.SelectAndMoveCaret`
+
+This is a simple little addition, but it is actually a rather annoying problem under the covers.
+
+One of the things that the editor doesn't solve in its current form (and won't, for this product cycle) is the best practice for updating the caret and selection.  The issue stems from an earlier decision that the caret and selection should be completely separate entities, which are almost always coincident, but don't have to be.  This was, I think, a good decision, but the problem was that it made it harder to solve and easier to ignore problems like changing the caret and selection position simultaneously.
+
+The net effect is that you *can't* change them simultaneously, so you end up moving one and then the other (in the order of your choice).  This can cause problems for the various other people listening for selection or caret movement events; depending on which is updated first, asking for the position of the other will give the pre-update position.  Moreover, features like VB's line commit (where VB updates a line after you change it and then move the caret off the line) listen for caret change and assume the selection is in the correct place.
+
+To help, we've added `IEditorOperations.SelectAndMoveCaret`, which is a way for moving both *almost* at the same time, in the generally accepted order (which is selection first, then caret).  It also has code that works around common mistakes in updating both, such as a version skew after the original selection move (if someone is listening for selection change and then modifies the buffer) and being careful around how the empty selection tracks the caret.  It also has overloads that let you specify how the view should be positioned after the move (centered on the caret, minimally moved to make the caret visible, not changed at all, etc.) and if the selection mode should be `Box` or `Stream`.
+
+## 3 - `ISquiggleTag` &rArr; `IErrorTag`
+
+`ISquiggleTag` had quite a long and interesting journey in this product cycle.
+
+It was first added to the new editor about a year and half ago.  In this version, you added squiggles by importing an `ISquiggleProviderFactory` and getting an `ISquiggleProvider` for a given buffer (I think; it was possibly a view).  You'd create tracking spans and add them to the provider for what you wanted squiggled, along with the type of squiggle (I think you could only choose from info, error, and warning at the time, but I could be wrong).
+
+At some point after that, `ErrorTypeDefinition`s could be created, and custom colors could be provided through `EditorFormatDefinition`s in the new `IEditorFormatMap`.
+
+The biggest change was when we migrated the mechanism for providing squiggle spans over to use tagging, and moved the mechanism for squiggles over to `ISquiggleTag`.  `ISquiggleProviderFactory` still existed, but `ISquiggleProvider` was replaced with a `SimpleTagger<ISquiggleTag>`.  The move to tagging allowed squiggles to work correctly in `.aspx` files and the like (through projection), and unified the various extensibility points that used the same mechanism of providing information over a span of text.
+
+After all this, though, we were still left with a minor wart; the "squiggle" portion of the name suggests a specific UI, which isn't really the intent of this subsystem.  As `ErrorTypeDefinition` suggests, these are meant to be more generally *error* spans.  Though errors are visualized in Visual Studio with squiggles *by default*, you could visualize them any number of ways, and any extension can consume them via tagging to do so.  In other words, the squiggles are not an identifying characteristic of an error tag.
+
+So Jack, our architect, finally put his foot down and changed the name to `IErrorTag`, which is where you'll find it in the RC (and for RTM).  The fix is just a simple rename, as nothing else about it has changed.
+
+### 3.5 - New interfaces for tag types
+
+The other change that accompanied the rename for `ISquiggleTag` was creating interface types that were missing for most of the tag types.  Without this, we were "hijacking" the tag inheritance hierarchy for no good reason, so you couldn't create a custom tag type that was both, say, a classification and a glyph (I think; I don't remember exactly which ones we added).
+
+The nice thing about this change is that *you don't need to update your taggers* if you don't want; if you export a tagger that provides a concrete type like `ClassificationTag` and don't switch it over to `IClassificationTag`, the tag aggregator that the editor uses won't need to be changed, as the editor will still pick it up correctly.
+
+However, if you are *consuming* tags (in Beta 2) by consuming the concrete type, you should add an "I" to the front to pick up the interface instead.  Otherwise, you'll still get taggers that happen to use the concrete type, as we left those around to not break existing code and for convenience, but you *won't* get taggers that use just the interface.
+
+## 4 - Preview images are now 200x200
+
+This was a bug in Beta 2; the preview images you specify for your extensions, when displayed in the extension manager, were 198x198 pixels.  This was because the code that was displaying the image was displaying it at 200x200, but including the 1 pixel border on each side.  This has been fixed in the RC, so you should make sure your preview images are 200x200 and your icons are 32x32.
+
+This was actually the most time-consuming part of updating my extensions for the RC, which hopefully speaks more about how easy it was to update my extensions than it says about the weakness of my mspaint skills.
+
+## 5 - `IUrlTag`
+
+This was really a new feature in Beta 2, but I missed it in my original article.
+
+Beta 2 re-introduced support for clickable URLs in the editor.  However, this isn't *just* an end-user feature; it also allows for extensions to provide their own URLs over arbitrary text in the editor.
+
+To do this, you'll be providing the editor with an `ITagger<IUrlTag>`; the span you tag will appear as the visible URL (blue and underlined), and the tag requires that you specify a `System.Uri`.  This will also pick up the ctrl+click behavior (for opening the URL in Visual Studio's web browser) and mouse hover behavior (for showing the URL that clicking will navigate to).
+
+## 6 - `ITextDocumentFactoryService.TryGetTextDocument`
+
+This is a tiny but useful addition; if you want to (try to) get a document for a text buffer, you can use this method to get one.  Previously, there was a mechanism for grabbing one from the buffer's property bag (if you knew the correct key), but that goes against the intent of the property bag, which is only for (shared) "private" storage.  In other words, the only things your component should try to pull out of the property bag are things that you component put there in the first place.  It isn't a mechanism for the editor to provide services to extensions, or vice versa.
+
+# And that's all she wrote
+
+What I hope you take away from this is that, on the extensibility side, there *aren't* any major changes, especially compared to the changes between Beta 1 and Beta 2.  The vast majority of our work was fixing bugs, performance, memory consumption, leaks, and things like that, and not on adding features (especially for extension authors).
+
+ [new-beta2]:http://blogs.msdn.com/noahric/archive/2009/11/04/what-s-new-for-extenders-in-beta-2.aspx
+

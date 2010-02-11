@@ -1,0 +1,29 @@
+<!-- Reader poll - how should I organize my blog posts? -->
+
+Here's a question for everyone:
+
+Since switching over to using Markdown for writing my blog, I've been pretty happy with the overall workflow:
+
+ 1. I use an existing post as a template, often [the source](http://github.com/NoahRic/blog/raw/master/Pages/Extensions.mkd) for my general page on [all my extensions](http://blogs.msdn.com/noahric/pages/extensions.aspx), since that contains links for everything (I'm also considering a link database feature for my markdown extension, specifically because of this).
+ 1. I edit the post in Visual Studio 2010 Beta 2, using the [Markdown Mode][markdown-vsgallery] and [Spell Checker][spell-vsgallery] extensions.
+ 1. At least once (and probably more than once), I commit the updates to a git repository and push that to [github][].
+ 1. Once I'm ready, I use the "Copy HTML to clipboard" button on the Markdown Mode toolbar, come to this blog, and paste the HTML into a new post.  I usually do one or two last proofreads (though those are pretty short, since I can see the previous as I type and the spell checker catches the most egregious mistakes, like that I can't spell "egregious" correctly without its help), and then I "post" the content for a date in the future, usually a Monday or Thursday.
+ 1. After I've posted the article, I'll update it occasionally (locally), but not very often, and I rarely update them on the blog.
+
+Now that I've written a few posts (about 15 total, not all published and not all pushed to github), the "place everything in a single folder" approach is starting to get a bit hairy, especially with the default sorting by name.  Alphabetical ordering is *sometimes* nice, *e.g.* for posts in the [markdown series][markdown-series] which are named in a way that lends itself to ordering, but it isn't especially helpful otherwise.
+
+My question, then, is this: **how do you all arrange information like this?**
+
+I can always, with my current approach, sort by Date Modified in the `File->Open` dialog, Explorer, or Finder, but it doesn't help me keep track of yet-to-publish and already-published and doesn't help me when I'm looking at things on github.  I've considered using a separate folder for "not yet published" and leaving the published stuff in a giant mess, but I don't know how much that will help.  I've also considered putting `month-year` in the name to marginally help out the default sorting, but haven't taken the plunge yet (I'm not too excited about renaming my existing posts).
+
+I suppose this is another opportunity for new features for Markdown Mode, though I'm somewhat loathe to solve this problem with a custom tool; if I do stop using Visual Studio to edit these posts, will I have to write a plug-in to handle my magical blogging format?  It doesn't seem like I'd come up with a general enough solution to warrant a tool/feature to handle it.  On the other hand, the database of common links that I mentioned before would save me enough time to be worth the mostly throwaway nature of the solution.  This is [Larry Wall's laziness](http://c2.com/cgi/wiki?LazinessImpatienceHubris), I think/hope.
+
+My general belief is that **tools exist to make jobs easier, but the job should never <i>require</i> the use of a tool**.  Having Markdown Mode provide handy features is nice, but I could get by writing my blog without it (is is just text, after all).  However, if my organization *depends* on having a custom tool to make it work, then that makes me a sad panda.  So my hope is to solve the organization problem in a way that tools could possibly make it easier, but doesn't require the use or creation of a new tool.
+
+Anyways, answers/thoughts in the comments, or on twitter (@noahsmark), if you can fit your advice into 140 characters.  I'd appreciate any thoughts, as my organizational skills are, well, garbage. 
+
+ [markdown-series]:http://blogs.msdn.com/noahric/archive/tags/markdown/default.aspx
+ [github]:http://github.com/noahric/blog
+ [markdown-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0855e23e-4c4c-4c82-8b39-24ab5c5a7f79
+ [spell-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7c8341f1-ebac-40c8-92c2-476db8d523ce
+

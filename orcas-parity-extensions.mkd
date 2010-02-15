@@ -1,0 +1,76 @@
+<!-- Two extensions for VS2008 parity -->
+
+Over the weekend, I came upon a [question on StackOverflow][stackoverflow] about how, in the new editor, you can't override the foreground color of selected text.  I had actually played around with writing an extension to "fix" this awhile back, but never really got it fully working.  Reading that question and the, uh, not-so-subtle insults about my teammates and me was enough of a kick in the pants for me to put it up on the gallery.
+
+While I'm at it, I decided to dust off another extension I started working on a few months back, to work around a feature we didn't have time to implement for Visual Studio 2010, which is how the editor draws the background color of text elements.
+
+You can download these on the Visual Studio Gallery:
+
+ * [Selection Foreground][foreground-vsgallery] ([source on github][foreground-github])
+ * [Background Color Fix][background-vsgallery] ([source on github][background-github])
+
+## 1) Selected Text foreground color
+
+This is a topic that has come up before; Brittany wrote [a blog post][brittany-blog] about it about half a year ago, and the reaction to that post was mixed.  The reaction we've seen, in general, has been positive to the change, but that doesn't mean that *everyone* is happy with it.
+
+In Visual Studio 2008 (and in most applications), selected text effectively inverts its color when a selection is made.  In most apps, that means it goes from black to white, to provide a suitable amount of contrast against the selection color itself.
+
+In Visual Studio 2010, we changed this behavior so that the selected text still appears as if it weren't selected (with syntax highlighting and everything).
+
+There are some useful benefits the new behavior provides:
+
+ 1. It is useful to not lose syntax highlighting and other information provided through text coloring when you have a selection, assuming that the coloring adds some value in the first place.
+ 1. Because of the way this was written, it allows the selection to be drawn without requiring any modification to the text layer, and therefore does not cause any layouts while the selection is changing.
+
+But one major drawback:
+
+ 1. Contrast is reduced when a selection is made, sometimes disruptively so.  While the default color scheme (with or without aero) looks mostly fine when a selection is made, many alternative color schemes look pretty nasty without changing the selection foreground color.
+
+Of course, I'll also point out that this drawback isn't that it is *impossible* to come up with color choices that provide an acceptable level of contrast when a selection is made; the issue is more that there are existing color schemes that were designed with the VS2008 behavior in mind, and thus won't automatically work well with the new behavior.
+
+### The "Selection Foreground" extension
+
+*[Download on the Visual Studio Gallery][foreground-vsgallery] ([source on github][foreground-github])*
+
+The extension alleviates this issue by restoring the old behavior and allowing the user to customize the selection foreground color.  There are a few caveats, however:
+
+ 1. **Performance** &ndash; because changing the text color requires classification changes, changing the selection will require the view to perform a layout and format *at least* the lines over which the selection has changed.  I say "at least" because the current extension isn't even that smart, as it causes the view to reformat *every line under the selection* every time the selection changes.
+ 1. **Fonts and colors item** &ndash; because the foreground color for "Selected Text" has been inactivated, the extension provides an alternative ("Selection Foreground"), which appears towards the bottom of the list, sorted alphabetically.
+
+## 2) Text background color
+
+This one was also a conscious decision, but more in the sense that it was something we didn't have time to get to for this release.
+
+"Colorizers" (what language services use(d) to supply text coloring) are asked to color a line at a time, and they can provide color information for every character on the line *plus one*.  The last "character" is actually the color information to be used for the whitespace from the right of the line to the right of the viewport.
+
+While the default VS color scheme doesn't use this, you can see the effect by changing the background color of the various XML Doc comment parts.  
+
+Without the extension, though, there are two problems, which you'll discover immediately if you change the background color of any types:
+
+<a href="http://blogs.msdn.com/photos/noahric/images/9963783/original.aspx">
+    <img src="http://blogs.msdn.com/photos/noahric/images/9963783/425x329.aspx" alt="Background color for XML doc comments, without any fixes" />
+</a>
+
+ 1. There is a gap between consecutive lines that have vertically abutting pieces of text with the same background color.  It sounds a bit trivial, but it does look pretty ugly, *especially* when the background colors are meant to form something that looks visually like the same block of text.
+ 1. The background color only goes as far as the text, and not to the edge of the screen.  The benefit of having it go all the way to the edge is to provide a better visual clue that this is a different block.
+
+### The extension
+
+*[Download on the Visual Studio Gallery][background-vsgallery] ([source on github][background-github])*
+
+Here's a screenshot of what it looks like with the extension:
+
+<a href="http://blogs.msdn.com/photos/noahric/images/9963785/original.aspx">
+    <img src="http://blogs.msdn.com/photos/noahric/images/9963785/425x328.aspx" alt="Background colors for XML doc comments, with the extension running" />
+</a>
+
+As the screenshot shows, the extension basically fixes both issues, though it doesn't do so perfectly.  As I mentioned before, colorizers have the option to specify the color for the space past the end of the line, and that's what the editor uses to draw that portion (in Visual Studio 2008).  Unfortunately, this extension doesn't have access to that information, and so the best it can do is guess that the background color of the last character on a line should be the same as the empty space after the character.  This is, of course, not really true in all cases; if you give keywords a background color and happen to end a line with a keyword, you really *don't* want that background color to continue past the end of the text.  Still, the behavior works in the case where you only set the background color for text that you want to continue past the end of lines (as many of these color schemes do).
+
+ [stackoverflow]:http://stackoverflow.com/questions/2256942/i-cant-edit-some-font-colors-in-visual-studio-2010-anyone-know-how-to-do-this/2260563#2260563
+ [brittany-blog]:http://blogs.msdn.com/visualstudio/archive/2009/11/04/improvements-to-vs-2010-text-selection.aspx
+
+ [foreground-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/7ed8bf5b-f62b-477b-b221-ab8f7216ee36
+ [foreground-github]:http://github.com/noahric/selectionforeground
+
+ [background-vsgallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/f3dc031f-3d33-4701-81fb-ac5e54cb0a81
+ [background-github]:http://github.com/NoahRic/BackgroundColorFix)

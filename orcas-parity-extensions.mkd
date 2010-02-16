@@ -24,7 +24,7 @@ There are some useful benefits the new behavior provides:
 
 But one major drawback:
 
- 1. Contrast is reduced when a selection is made, sometimes disruptively so.  While the default color scheme (with or without aero) looks mostly fine when a selection is made, many alternative color schemes look pretty nasty without changing the selection foreground color.
+ 1. Contrast is reduced when a selection is made, sometimes disruptively so.  While the default color scheme (with or without aero) looks fine when a selection is made, many alternative color schemes look pretty nasty without changing the selection foreground color.
 
 Of course, I'll also point out that this drawback isn't that it is *impossible* to come up with color choices that provide an acceptable level of contrast when a selection is made; the issue is more that there are existing color schemes that were designed with the VS2008 behavior in mind, and thus won't automatically work well with the new behavior.
 
@@ -39,9 +39,9 @@ The extension alleviates this issue by restoring the old behavior and allowing t
 
 ## 2) Text background color
 
-This one was also a conscious decision, but more in the sense that it was something we didn't have time to get to for this release.
+This one is also a change from VS2008, but more in the sense that it was something we didn't have time to get to for this release (we still consider this a bug and not a purposeful change in behavior).
 
-"Colorizers" (what language services use(d) to supply text coloring) are asked to color a line at a time, and they can provide color information for every character on the line *plus one*.  The last "character" is actually the color information to be used for the whitespace from the right of the line to the right of the viewport.
+"Colorizers" (language services, effectively) are asked to color a line at a time, and they can provide color information for every character on the line *plus one*.  The last "character" is actually the color information to be used for the whitespace from the right of the line to the right of the viewport.
 
 While the default VS color scheme doesn't use this, you can see the effect by changing the background color of the various XML Doc comment parts.  
 

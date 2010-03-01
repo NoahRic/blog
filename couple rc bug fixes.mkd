@@ -1,0 +1,13 @@
+<!-- A couple of RC bug fixes -->
+
+I've made a couple of small fixes in various extensions since the RC.  Things have been busy, still, so I haven't had a chance to get back to my normal blogging schedule, but I have had small bits of time for the following:
+
+#####[Go To Definition](http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b)
+* **v2.1** &ndash; Fixed bug where the caret can get stuck as a hand even after the mouse is no longer over an identifier with the control key held down.
+
+#####[Background Color Fix](http://visualstudiogallery.msdn.microsoft.com/en-us/f3dc031f-3d33-4701-81fb-ac5e54cb0a81)
+* **v0.2** &ndash; Fixed behavior and improved performance around collapsed regions.  Before this version, if you had any elements in a collapsed region with a different background color, the collapsed region would pick up that color.  As of v0.2, that only happens if the different background color touches the edges of the collapsed region.
+
+#####[Fix Mixed Tabs](http://visualstudiogallery.msdn.microsoft.com/en-us/91a3f8ae-3152-438a-b5fc-fb37878dd007)
+* **v2.0.2** - Reduced timer for showing the margin to 175 ms in rich-client experience (courtesy Steven Schermerhorn).
+* **v2.0.1** - Actually updated for RC/RTM.  v2.0 had a CopyLocal reference to a dll that has been removed in the RC, so the extension actually wasn't working at all.

@@ -1,23 +1,25 @@
 <!-- CSS is Less -->
 
-While browsing StackOverflow for [questions about VS2010][vs2010-so], I came upon this question, about how to [make .less files open in the CSS editor][less-so].  Coincidentally, I had written up an extension to do this in response to [a tweet][less-tweet] from about a month ago.  Since the popularity of this has doubled (from one to two people), I went ahead and stuck this up [on the Visual Studio Gallery][less-vsgallery].  Coincidentally, there was a similar question to this [posted on the editor forums on msdn][html-forums].  Since three is a crowd, I figured I'd throw together a blog article about how this extension works, in case anyone else finds themselves in need of something similar.
+While browsing StackOverflow for [questions about VS2010][vs2010-so], I came upon a question about how to [make .less files open in the CSS editor][less-so].  Coincidentally, I had written up an extension to do this in response to [a tweet][less-tweet] from about a month ago.  Since the popularity of this has doubled (from one to two people), I went ahead and stuck this up [on the Visual Studio Gallery][less-vsgallery].
+
+There was a similar question to this [posted on the editor forums on msdn][html-forums] a week or so ago.  Since three is a crowd, I figured I'd throw together a blog article about how this extension works, in case anyone else finds themselves in need of something similar.
 
 ### Modifying the registry
 
 At it's core, this extension is extremely simple; it's a `pkgdef` file that looks like this (for the `Less` case):
 
-    [$RootKey$\Languages\File Extensions\.less]
-    @="{A764E898-518D-11d2-9A89-00C04F79EFC3}"
-    
-    [$RootKey$\Editors\{A764E89A-518D-11d2-9A89-00C04F79EFC3}\Extensions]
-    "less"=dword:00000028
+>     [$RootKey$\Languages\File Extensions\.less]
+>     @="{A764E898-518D-11d2-9A89-00C04F79EFC3}"
+>     
+>     [$RootKey$\Editors\{A764E89A-518D-11d2-9A89-00C04F79EFC3}\Extensions]
+>     "less"=dword:00000028
 
 This creates two registry entries:
 
 1. The `File Extensions` entry associates the given extension with the given language service.  This is how the editor figures out what `ContentType` to use for the given file extension, which controls what `MEF` extensions are loaded for that content type, and also sets the language service GUID on the `IVsTextBuffer` the editor uses.
-1. The other entry associates the given file extension with the CSS language service's editor factory.  This is used by the shell to pick which editor factory is used to create the buffer and view for the given editor instance.  Technically speaking, most of the editor factories create the same buffer/view as every other (the adapters over the new editor), but these editor factories tend to do other setup that their languages use.
+1. The other entry associates the given file extension with the CSS language service's editor factory.  This is used by the shell to pick which editor factory is used to create the buffer and view for the given editor instance.  Technically speaking, most editor factories create the same buffer/view as every other (the adapters over the new editor), but these editor factories may also do other setup that their language services require to work fully.
 
-The `pkgdef` file lets us do this as an extension and without worrying about the registry root, which is what the `$RootKey$` variable means.
+The `pkgdef` file lets us do this as an extension and without worrying about the registry root, courtesy of the `$RootKey$` variable.
 
 The only other piece of information there is the dword value, which is just the priority of that file extension to editor factory mapping.  It doesn't really matter for a unique file extension, and I'm not sure why I picked the `00000028` value; it may have just been the value of a different file extension mapping for the CSS language service.
 
@@ -32,9 +34,9 @@ Making the extension was also pretty simple:
 1. Set the `pkgdef` file's contents to what I pasted above.
 1. If you care, you can also make sure the (empty) binary you build isn't stuck in the VSIX by adding the following to a `<PropertyGroup>` in the `.csproj` file:
 
-        <IncludeAssemblyInVSIXContainer>false</IncludeAssemblyInVSIXContainer>`
-        <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
-        <IncludeDebugSymbolsInLocalVSIXDeployment>false</IncludeDebugSymbolsInLocalVSIXDeployment>
+>     <IncludeAssemblyInVSIXContainer>false</IncludeAssemblyInVSIXContainer>
+>     <IncludeDebugSymbolsInVSIXContainer>false</IncludeDebugSymbolsInVSIXContainer>
+>     <IncludeDebugSymbolsInLocalVSIXDeployment>false</IncludeDebugSymbolsInLocalVSIXDeployment>
 
 ...and that's it.  If you build and run or debug that project, it'll open an instance of the experimental hive, which should have that extension loaded.  Because the `pkgdef` file automatically figures out the correct registry root to go with the registry hive that instance of Visual Studio is using, only the experimental hive will have the new file extension mapping.  If you want your regular VS to have it as well, just find the `VSIX` in the `bin\Debug` or `bin\Release` folder the project lives in and double-click it from explorer (that will install it in VS).
 

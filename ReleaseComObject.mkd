@@ -1,0 +1,110 @@
+<!-- Marshal.RelaseComObject considered not-very-nice -->
+
+Paul Harrington just posted an interesting article on the Visual Studio blog entitled ["Marshal.ReleaseComObject Considered Dangerous"](http://blogs.msdn.com/visualstudio/archive/2010/03/01/marshal-releasecomobject-considered-dangerous.aspx). I don't have anything more technically useful to add, but I want to share my take on this.
+
+The article was especially poignant for me, as a few coworkers and I spent a couple of days this week hunting down a nasty issue that ended up centering around `Marshal.FinalReleaseComObject`.
+
+## WinForms, ActiveX, and tears of unfathomable sadness
+
+We've been looking into an issue that was something like this: you have a tool window in Visual Studio that uses OLE (the third and least used mechanism for putting content into VS), written in entirely *native* code.  Under the covers, the actual visible control is an ActiveX control, which is hosted in WinForms.  This last part was non-obvious to us at the start, and only became apparent later on through debugging.  I'll also add that those of us debugging the problem at the time really didn't have any experience with OLE hosting in the shell, so this was a bit of an...uh...adventure.
+
+Here's the symptom: when the `IOleObject` is closed (by the VS shell), it goes through its resources and cleans them up, like a good citizen.  This includes cleaning up the ActiveX control, by doing the equivalent of the following:
+
+    myActiveXControl.WhateverCustomCleanup()
+    myActiveXControl.SetClientSite(NULL)
+    myActiveXControl.Release()
+    myActiveXControl = NULL
+ 
+Sometime after this sequence, Visual Studio jumps up to 100% CPU usage, which doesn't ever seem to go away.  The IDE is still (mostly) responsive, so it isn't hung, but it is certainly busy doing something/nothing.  The owners of this tool window tracked the problem down to the call to `myActiveXControl.SetClientSite(NULL)`; commenting out that line was enough to get rid of the 100% CPU usage.
+
+### Debugging
+
+The first thing we did was what my coworker Zach calls "break sampling", which is just to attach with a debugger and break/resume over and over again.  Assuming that this code is in some type of loop, you hypothesize that breaking over and over again should end up breaking in the interesting parts of the loop more often than not, giving you a decent idea of what's going on.  This doesn't always work, but it works more often than I would have expected.
+
+From this, we discovered the problem was that this component was registered as an idle handler (as a side-effect of implementing `IOleInPlaceComponent`), and therefore getting called on idle.  This was pretty unexpected, since the tool window was visibly closed at the time.  Every time idle processing took place, the idle processing logic in the shell was throwing this dreaded exception:
+
+    COM object that has been separated from its underlying RCW cannot be used
+
+For the uninitiated, this means that *some* piece of managed code *somewhere* in the entire product called `Marshal.ReleaseComObject` or `Marshal.FinalReleaseComObject` on the RCW, therefore poisoning it for everyone else.  That's really all the information you get, too: you have no idea what, where, or when that was called, besides the obvious "not this object", "not anywhere obvious", and "sometime before now".
+
+### Normal RCW lifetime 
+
+Runtime Callable Wrappers are fairly simple in the abstract.  They bridge the gap between managed lifetime, based on garbage collection, and COM lifetime, based on reference counting.  To do this, RCWs generally `AddRef`/`Release` the underlying COM object *just once*, when they are created and finally unused.  Also, a single RCW is created for each COM object, unless `Marshall.GetUniqueObjectForIUnknown` is used, which creates a unique RCW.  So the relationship is basically
+
+
+         MANAGED CODE                         NATIVE CODE
+         ------------             |           -----------
+    managed object #1 \           |
+                       --> RCW  --|------>  Native COM object
+    managed object #2 /           |
+
+As managed consumers pile on to the RCW, nothing special needs to happen.  The garbage collector tracks all the references, making sure the RCW stays alive for as long as any clients have references to it.
+
+Sometime after the last reference is released, something (we'll just say the garbage collector, for simplicity) informs the RCW that it isn't being used anymore.  Sometime after that, the RCW calls `Release()` on the native COM object, thus evening out the single `AddRef()` from when it was created.
+
+There are gotcha-s to be observed; if you have circular references in *just managed code*, these are all handled gracefully by the garbage collector, which can determine when a cycle of references is all unused and clean up the whole cycle for you.  However, if cycle passes through the interop boundary, where a managed object in the cycle holds a COM object through an RCW, and a COM object on the other side holds a managed object through a CCW (COM Callable Wrapper), then the garbage collector *can't do anything about it*.
+
+*Aside: The approach we tend to use for fixing this is basically to break the reference cycle on the managed side by using a `WeakReference`.  If `Foo` is the managed object with the reference to the RCW, and it is held by a `FooOwner`, you can make the reference in `FooOwner` a `WeakReference<Foo>`.  This type of thing probably deserves its own blog article, which I'm hoping Michael, my coworker, will write about some day.  He had to fix a couple of these around the new editor and undo.*
+
+### Not-so-normal RCW lifetime
+
+There is another workaround for that type of issue, though, and that is `Marshal.ReleaseComObject` and `Marshal.FinalReleaseComObject` (though they are often used for more than just this).  They are basically ways to take control of the lifetime manually and immediately and break the reference to the COM object.
+
+*A quick note: this does **not** have anything to do with `Marshal.Release(IntPtr)`, which is required in many places, e.g. in conjunction with `IServiceProvider.QueryService`.*
+
+Sounds well and good at first, until you come back to what I started the last section with: **a single RCW is used for each COM object**.  When you combine that with the fact that RCWs tend to hold only a single ref count on the underlying COM object, both methods end up being mostly equivalent.  Regardless of who calls one of these release methods, after the method has been called, any piece of managed code that is holding on to the reference has a "poisoned" reference to the COM object.  As soon as anyone else tries to call a method using that reference, an exception will be thrown.
+
+The problem is that it isn't obvious, and wasn't in Visual Studio for so long, that calling this method will cause other issues.  In Visual Studio 2010, which has a great deal more managed code than before, there are many more RCWs, especially since two of the big platform pieces (the shell and the editor) are both mostly managed components.  If you have only one client, then either of these releases has no obvious detriment.  Also, if you have more than one client but they all happen to be done with the underlying object before one calls either of these methods, again, nothing will appear to go wrong.  Code in VS used either method for at least a few releases now, and everything worked just fine.
+
+### Back to debugging
+
+At this point, then, the problem was determining who was poisoning the RCW.  I wasn't the one that did the debugging for this part, so I'm not sure exactly how you would go about doing this, but the end result was that we discovered the WinForms ActiveX host calls `Marshal.FinalReleaseComObject` on it's existing client site when it gets a call to `SetClientSite(NULL)`, which was the line of code that was commented out to sidestep the problem.
+
+This final release worked fine in VS2008 and previous releases, as the shell was written in native code (no RCWs), as was/is this tool window (no RCWs).  In that world, the WinForms object really was the only object holding the RCW, so it ended up not being a problem.
+
+In VS2010, though, the shell *is* implemented in managed code, and basically does the following when cleaning up the `IOleObject`:
+
+    1: oleObject.Close(NO_SAVE)
+    2: oleObject.SetClientSite(NULL)
+    3: // ...
+    4: // ...
+    5: // ...
+    6: removeOleInPlaceComponentFromIdleLoop()
+
+In this call to `Close`, the `oleObject` cleaned up the ActiveX control (as it should), which then poisoned the RCW (which wasn't nice), which meant that by the time line 2 was executed, the RCW was already separated from the COM object that `oleObject` referenced.  This caused an exception to be thrown, which meant that everything after line 2 wasn't being executed.  Then, in the idle loop, when `FDoIdle` was called on the `IOleInPlaceComponent` (which, in this case, is the same object that implements `IOleObject`), the same exception was thrown about the `IOleObject` being separated.
+
+Ugh.
+
+## Being not-so-nice
+
+While it's certainly dangerous to do this, as Paul's article details, I don't know that it fully captured the not-very-nice-ness of these releases.
+
+My point is *not* that code that does this was written maliciously, with the intent to break other managed code in the same environment, or that people who write said code are mean people.  I imagine, as Paul's article describes, that most of these calls are added in good faith; trying to free up resources, break reference cycles, things like that.  I'd also guess that most people don't understand the impact of these calls on seemingly unrelated managed clients holding the same reference (I certainly was unaware until we first started seeing this issues a few years ago).
+
+My point is that the only non-obvious side-effect of calling either of these release methods is the effect on components *other than* the one that made the call in the first place, so the only bad stuff that can happen is this one object ruining things for everyone else.  `Marhsal.(Final)ReleaseComObject` is the programmatic equivalent of taking your ball and going home, so the other neighborhood kids have nothing to play with anymore.
+
+Here's my final (and probably more realistic) analogy on the subject.
+
+### The light switch
+
+Let's say you have a room with a light switch.  You walk into the room and turn it on (`new`), you walk out of the room and turn it off (`delete`).  Pretty simple.  You know who "owns" the light switch; you turned it on, so you turn it off.
+
+At some point, you decide to install a motion sensor in the room, so that it automatically turns on when you walk in and shuts off when everyone leaves.  Pretty cool, eh?  Now lots of people can walk in the room without everyone having to turn it on, and it should stay on as long as people are still in the room.
+
+However, you notice that when you leave the room, it doesn't shut off immediately, sometimes not for a few minutes (next garbage collection) or not until you leave the building entirely (app shutdown and everyone gets cleaned up).  When this happens, you glance around briefly, but you don't notice anyone in the same room as you.  You decide this isn't a very good use of electricity, so you install a manual override for turning the light off.  Now, when you leave, you just flick the light off manually (`Marshal.ReleaseComObject`).  Works just fine, and you can make sure the lights are always off before you go home.
+
+What you didn't realize, however, is that the light was staying on either because someone was still in the room, out of sight, or just because you didn't wait long enough.  You were trying to be a good citizen by conserving energy usage, as the belief that the light was staying on (getting leaked) was informed by direct and immediate observation.  Unfortunately, since the light switch was really non-deterministic (garbage collection) and it wasn't obvious when other people were in the room but out of sight (other managed clients), you couldn't tell that the light was doing exactly what it advertised.
+
+Now, years later, the room has become the happening place to hang out (VS2010 with more managed code), and whenever you leave the room, because you've gotten into the habit of always manually shutting the light off, you leave everyone else in the dark (separated RCW).  You know this because, late at night after you've left the room, you can hear the quiet sobbing of the people who never found their way out of the room before you turned the light off (separated RCW exception).
+
+### The moral of this whole story
+
+There actually isn't a really strong one.  I would like to say "Go now and fix this!", but I'm no longer a stranger to trying to ship software on time.  If everyone spent all their time reading blog articles and fixing up the most recent "OMG watch out for...", then you'd have a pretty constant code churn in a lateral direction.
+
+The truth is that this advice is only useful for a limited audience; the more of these characteristics your managed code has, the more likely you should *consider* doing something about this:
+
+* Your code is using `Marshal.ReleaseComObject` or `Marshal.FinalReleaseComObject`
+* ...but not in conjunction with `Marshal.GetUniqueObjectForIUnknown`
+* Your code may share references to COM objects with other code you don't control
+* Your code doesn't obviously "own" the reference to a COM object
+* Your code is a "framework" component (and so you have no idea what else may coexist with your code)

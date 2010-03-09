@@ -1,0 +1,59 @@
+<!-- New extension: Align Assignments -->
+
+*Download [Align Assignments on the VS Gallery][align-gallery], and check out [the source on github][align-github].*
+
+About a month ago, a blog article about ["TextMate shortcuts you should be using"](http://szeryf.wordpress.com/2010/02/15/textmate-shortcuts-you-should-be-using/) came across my feed reader.  The third item down on that list is "Align Assignments", which lines up successive equals signs (`=`) in a block of text.  This wasn't the first time I've heard of complaints about this feature being missing from VS, oftentimes from SlickEdit users.  In that product, it is called "Align on equal" and happens automatically, but the principle is similar.
+
+The idea is to take this:
+
+![Assignment block, before alignment](http://blogs.msdn.com/photos/noahric/images/9971166/original.aspx)
+
+...and turn it into this:
+
+![Assignment block, after alignment](http://blogs.msdn.com/photos/noahric/images/9971170/original.aspx)
+
+I figured that this would also make an interesting extension, because it requires a new command to be registered, and thus you have to have an extension that is both a package and MEF component.  Since I had such a hard time of it [last time around](http://blogs.msdn.com/noahric/archive/2010/01/18/markdown-part-3-a-tool-window-previewer.aspx), I was hoping to do it "the right way" this time around, meaning to start with a package and turn it into a MEF component.
+
+## Alignment Logic
+
+The logic I used for this was pretty straightforward, found in [CommandFilter.cs](http://github.com/NoahRic/AlignAssignments/blob/master/CommandFilter.cs).  The algorithm is essentially:
+
+1. Figure out if the current line has an `=` on it.  If it doesn't, quit.
+1. Walk up and down until you find a line without an `=` on it in each direction.  However, if there is a selection that spans multiple lines, don't walk past the start/end of the selection.
+1. For each line that has an equals, determine the buffer offset (the number of characters in the buffer) until the first non-whitespace character before the `=`, and the column offset for the same.  This are the same except for tab characters, which can add more than 1 to the column offset, and combining characters, which take a high/low surrogate pair to add 1 to the column offset.
+1. Find the largest column number of all the lines, and insert whitespace on every other line to match things up. 
+
+(2) is a bit clearer in code, I think.  The overall logic is the [AlignAssignments method](http://github.com/NoahRic/AlignAssignments/blob/5ce88e2edbfff1ed877d3e18d78be4775c579055/CommandFilter.cs#L82), and the logic for calculating column/buffer offset is in the [GetColumnNumberOfFirstEquals method](http://github.com/NoahRic/AlignAssignments/blob/5ce88e2edbfff1ed877d3e18d78be4775c579055/CommandFilter.cs#L157).
+
+There's also some magic about combining characters, to make sure it doesn't count a high/low surrogate pair as two columns.
+
+The end result is a command that does basically what you want 95% of the time by just sticking the caret in the middle of a bunch of declarations (or after you've finished typing the last one and before hitting enter) and hit the shortcut without thinking too hard about it.
+
+There is a caveat, at least for C# users. C# still tries to format these declarations back to single spaces between each element, so it'll undo the command the next time you insert an end brace, format the document, etc.  To get around this, make sure the following option is toggled:
+
+    Tools->Options->Text Editor->C#->Formatting->Spacing->"Ignore spaces in declaration statements"
+
+VB and C++ don't appear to have settings to control this, and they may just overwrite the alignment (I didn't check this). Not much this extension can do about that, unfortunately.
+
+## The command
+
+The more difficult part was the part around creating a command.
+
+To this end, I spent about an hour reading random blog articles that I could find about .vsct files. Even after that, I still don't feel like I really understand what's going on. I started with a package this time (as I should have last time), with the Menu Command it generates, but it still took me over an hour to get the command to do what I want.
+
+In any event, I ended up with a command that is bound to `Ctrl+Alt+]` (to match TextMate's `Cmd+Opt+]`) and placed somewhere in the Edit menu.
+
+The [end result](http://github.com/NoahRic/AlignAssignments/blob/5ce88e2edbfff1ed877d3e18d78be4775c579055/AlignAssignments.vsct) isn't especially complicated, though I doubt it is truly minimal for the behavior I want.
+
+Here are some overall thoughts about .vsct files, for the curious:
+
+1. If you weighed Harry Houdini and a .vsct file on a scale that measures magical-ity, Harry would be launched through the air like a human cannonball.  I'm considering sending an email to Barnum and Bailey to let them know of this new, cheaper alternative to launching humans through the air.
+1. The order of elements in a .vsct file is important. You'll get warnings for out-of-order elements while writing the file, though it won't be specific how to fix it.  The [MSDN page](http://msdn.microsoft.com/en-us/library/bb164711.aspx) for this is helpful for determining order.
+1. I still don't know how to add a menu item to the `Edit->Advanced` menu, and was unable to find any information about this.  It's also not one of the things you get Intellisense for while writing the .vsct file. I could look at product code to figure this out, but I figure that's cheating, since regular extenders can't do that.
+
+## So go try it out!
+
+...especially if you are a TextMate or Visual SlickEdit user. This extension likely won't work exactly like TextMate, as I didn't compare it directly, and it isn't automatic like SlickEdit, but it can hopefully add at least some of the value of those features.
+
+ [align-gallery]:http://visualstudiogallery.msdn.microsoft.com/en-us/0cc34d69-c6f1-41e3-ac6e-5de071b3edc8
+ [align-github]:http://github.com/noahric/alignassignments

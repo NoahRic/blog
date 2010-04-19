@@ -2,11 +2,17 @@
 
 The phrase "the WPF editor" comes up a lot as a somewhat official name for the new editor in Visual Studio 2010. A good deal of this is probably because we called it that quite a bit at the beginning, as a way of distinguishing it from the editor in past versions of VS (which certainly doesn't use WPF for its rendering).
 
-However, the name has taken on life of it's own, and the fact that VS now uses WPF has become the primary straw man of why VS is slow.  Rico [wrote about it][rico-blog], and I also [wrote about other performance issues][me-perf], mostly since we've all seen lots of comments to this effect on blogs, twitter, StackOverflow, Slashdot, and other sites.
+However, the name has taken on life of it's own, and the fact that VS now uses WPF has become the primary straw man of why VS was/is slow.  Rico [wrote about it][rico-blog], and I also [wrote about other performance issues][me-perf], mostly since we've all seen lots of comments to this effect on blogs, twitter, StackOverflow, Slashdot, and other sites.
+
+The other common complaint is a usually disparaging straw-man along the lines of, "so you guys wasted all that time in the editor so you could get gradients," which I mostly blame ourselves (Microsoft) for, since every WPF demo I've ever seen has been showing gradients or animated 3D text, the latter of which is probably the most useless demoware I could ever think of.  I get it, at some level; the actual benefits of WPF are to programmers and designers, and only indirectly to end users, in that it helps programmers and designers be more efficient and effective at reaching goals.
 
 I also worry, ever so slightly, that people start to assume a few things about the editor from the name; either that we called it that because it was *the* most important characteristic of the new editor, or because it was something inherent to the architecture or implementation of the new editor. In my opinion, the first isn't really true, and the latter certainly isn't.
 
-I know that in my first post about the editor, I certainly called out that it uses WPF (and used the un-artful phrase "The editor is written *using* WPF", emphasis added), which sounds like we built it *on top of* WPF, which really isn't the case.  We also received a few Connect bugs since the CTP asking for an option to turn back on the ol' HWND-based rendering, as if the new editor was just a sparkly, gradient-y new veneer for the existing editor.  In an effort to be part of the solution and not part of the problem (as GI Joe cartoon taught me growing up), here's my take on things.
+I know that in my first post about the editor, I certainly called out that it uses WPF (and used the un-artful phrase "The editor is written *using* WPF", emphasis added), which sounds like we built it *on top of* WPF, which really isn't the case. We also received a few Connect bugs since the CTP asking for an option to turn back on the ol' HWND-based rendering, as if the new editor was just a sparkly, gradient-y new veneer for the existing editor.
+
+And, really, I have no excuse, since saying something is written *using* WPF is somewhat like saying Windows 7 is written *using* GDI, or Eclipse is written *using* CDET; "written using" is too close to "written *in*" for me, and sounds kinda like "this website was written *using* CSS".
+
+In an effort to be part of the solution and not part of the problem (as GI Joe cartoons taught me growing up), here's my take on things.
 
 ## Foundations
 

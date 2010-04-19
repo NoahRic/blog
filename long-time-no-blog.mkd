@@ -1,0 +1,29 @@
+<!-- Long time no bloggy. -->
+
+Been a long time since I've blogged, sorry about that.  I won't get too deep into things that have happened since my last post, but here's the short list:
+
+## Visual Studio 2010 shipped
+
+Yeah, the obvious one.  We (individual developers) actually aren't that involved for the last month or so, but there were a few last minute fixes and activities *around* the launch of VS to get finished up.
+
+All in all, we shipped on time (where on time means "the last date that we picked to ship, no delaying last-minute issues") and, so far as I know, haven't managed to physically destroy everyone's computer or break anyone with an attached tablet device (again).  That's what the RC is for :)
+
+## Extension updates galore
+
+I've pushed out some updates in the last few weeks, a ton in the last week or two to the [Spell Checker extension](http://visualstudiogallery.msdn.microsoft.com/en-us/7c8341f1-ebac-40c8-92c2-476db8d523ce).
+
+## Fixing bugs for the future
+
+As with everything that has a shipping deadline, you can't fix everything that you'd want to, given infinite time and resources.  Around the time that VS2010 shipped, our (the editor team's) triage team went through the bugs that we'd postponed due to resource constraints and relative priority and split out the ones that we really are just not ever going to fix and the ones that we should be fixing.
+
+Since then, I've been fixing lots of little issues that have been bugging me for awhile, which includes everything from misspelled comments and confusing exception messages to silly/stupid little mistakes (like the one where the URL classifier doesn't subscribe to `TagsChanged` events on any `ITagger<IUrlTag>`, which at least one person has already hit).
+
+## Other random things at work
+
+We're at a stage, between releases, where we step back from working on features and bugs and work on, well, everything else.  As part of that, there are a ton of smaller projects going on in the division.  One that I'm working on with Michael, a coworker on the editor team (who needs to write new articles in [his blog](http://blogs.msdn.com/micleh/)), involves some of the more advanced features of the editor (text view models and the projection system).  We'll share more about it in the next few months, along with blog posts on the what and how.
+
+## What's to come?
+
+I haven't been writing too many new extensions these days, so expect more posts about editor extensibility in the abstract in the near future.  Also, I'm always open to taking topic ideas, so send me an email or post a comment if there is something you'd like to see written about.
+
+Also, if you have any feedback about Visual Studio 2010, please either [open bugs on Connect](http://connect.microsoft.com/VisualStudio), ping me on twitter (@noahsmark), or send me an email.  The Connect bugs would be the best way to track the status of any bugs you file, but anything sent to me should find its way to the correct team.

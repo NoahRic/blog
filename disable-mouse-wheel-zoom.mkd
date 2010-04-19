@@ -1,0 +1,82 @@
+<!-- Editor options - Disabling mouse wheel zoom -->
+
+One of the new features for the editor in Visual Studio 2010 is zoom, which is one of those nice things we get for free by using WPF.  If you haven't played with it yet, there are two ways to zoom in an editor instance: the zoom control in the bottom margin (the one that normally reads "100 %"), and holding down the control key and scrolling the mouse wheel.
+
+Personally, I don't ever use zoom unless I'm giving a presentation, which is basically never.  Unfortunately, I do often find myself doing something like this:
+
+1. Hold down the control key
+1. Press `s` to save the current document.
+1. Scroll the mouse wheel to scroll the text view.
+
+In my mind, save and scrolling are parallel activities, so my brain is essentially performing Save with my left hand and Scroll with my right hand.  Unfortunately, when these overlap slightly and I haven't taken my left hand off the control key by step #3, I accidentally zoom in or out.
+
+I've heard a few similar complaints, so I decided to put up a quick extension to disable ctrl+wheel zoom:
+
+[Download "Disable Mouse Wheel Zoom" on the Visual Studio Gallery](http://visualstudiogallery.msdn.microsoft.com/en-us/d088791c-150a-4834-8f28-462696a82bb8)  
+[Grab the source on github](http://github.com/NoahRic/DisableMouseWheelZoom)
+
+However, in an effort to turn this into a slightly more educational experience, I'm going to use this as a jumping off point to talk briefly about **Editor Options**.  If you are interested, read on.
+
+## Editor Options
+
+A decent number of characteristics of the new editor are configurable.  For example:
+
+1. The visibility of each individual margin in the text view.
+1. Tab/indent size and whether to use tabs or spaces.
+1. Word wrap on/off and mode (the editor supports more than one word wrap mode)
+1. Virtual space, visible whitespace, etc.
+1. ...and many other options found in in Tools->Options->Editor
+
+Options in the editor are represented by `IEditorOptions`.  At the most specific, they are attached to a text view or text buffer, and, at the least specific, there is a set of global options, which you can grab from any `IEditorOptions` instance or the `IEditorOptionsFactoryService`.
+
+### Hierarchy
+
+Options form a hierarchy, with the most specific (say, a text view) at the top and the most generic (global) at the bottom.  For example, the options for a text view in Visual Studio, which you can get from the `ITextView.Options` property, look like this:
+
+         View
+           |
+      (selection)
+           |
+      VS settings
+           |
+         Global
+
+The only ones that are really easy to get to are the View and Global options; the ones marked "(selection)" are used specifically by the selection when it is in box selection mode, so it can selectively enable/disable virtual space without bothering anything else, and the "VS settings" are the options kept in sync with Visual Studio's current values for options.
+
+Note that this hierarchy is likely to change in the future, so you shouldn't depend on it looking like this.  There is some talk of making the hierarchy match closer to what a user would expect or value, such as having options scopes for language and project instance, but that won't be present when Visual Studio 2010 ships.
+
+### Lookup
+
+Option value lookup is fairly simple; if you ask the view's options for the value of, say, virtual space, it'll start by looking to see if that value is set on the view options.  If it isn't, it asks the parent options.  This continues until either an option value is found or we get to the global options, at which point the value returned is the default value, which is set by whoever defines the option.
+
+Optionally, you can programmatically request the value that is explicitly defined at any given scope, but it isn't often used; it's really there for programmatic discoverability, and not meant for the normal "what is this option's value?" request.
+
+### Option definitions
+
+Options are defined by `Export`ing an `EditorOptionDefinition`, so anyone can create a new one.  In that definition, you get to specify a couple of things:
+
+* A key, which is a generic (typed) key for retrieving the option value
+* A predicate for testing if a proposed option value is valid
+* A default value (again, typed for your type of option)
+* A predicate for determining if the option is valid at the given scope, which is used for (currently) only the most specific set of options.  Today, this is usually either an `ITextBuffer`, `ITextView`, or `IWpfTextView`.
+
+Note that there are helper definitions for `ViewOptionDefinition` and `WpfViewOptionDefinition`.  There are no default options that are buffer-specific.
+
+### Default options
+
+You can find the options the editor has defined by looking at the following `Default*Options` types:
+
+[DefaultOptions](http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.editor.defaultoptions_fields(VS.100).aspx)  
+[DefaultTextViewOptions](http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.editor.defaulttextviewoptions_fields(VS.100).aspx)  
+[DefaultTextViewHostOptions](http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.editor.defaulttextviewhostoptions_fields(VS.100).aspx)  
+[DefaultWpfViewOptions](http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.editor.defaultwpfviewoptions_fields(VS.100).aspx)
+
+The only strange one is `DefaultOptions`.  Because of some decisions we made for this release (that will hopefully change in the future), these options are generally set on *both* the view and buffer, to make sure that logic that needs these options can find them in either place.  These options are only tab size, indent size (in RTM, not there in the RC), convert tabs to spaces, and newline character options, so you likely don't need to mess with these.
+
+You can also find options programmatically by calling methods on `IEditorOptions` that give you information about what options are applicable to or defined at a given scope.  If you call these methods on the global scope, you'll basically get everything back.
+
+### Performance
+
+The one thing to watch out for, which David recently discovered, is that any assembly that exports option definitions will be loaded when the first editor instance is created.  This is something we hope to fix in the future, but we can't/won't be fixing it for RTM.  In this case, it may work best to place your option definition exports in a different assembly than the rest of extension and put both (all) your assemblies together in the same VSIX.
+
+If you have any questions or comments, post them below.  Thanks!

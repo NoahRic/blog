@@ -1,0 +1,42 @@
+<!-- Extending extensions -->
+
+If you'd ever taken a peek at the [code for the Spell Checker extension](http://github.com/noahric/spellchecker) before a couple weeks ago, you may have noticed that there were some definition interfaces intermingled with the various implementation classes.  One such example is the `NaturalTextTag`, which the spell checking logic aggregates to know what parts of a text buffer to spell check.  The extension has two defined; one for plaintext files, which says "spell check the whole file", and one for code files, which says "spell check all comments and strings".
+
+However, the real intent was that this tag could be produced by other extensions, for other languages, like determining which portions of an HTML page should be checked, or, say, Markdown files.  Essentially, the Spell Checker should be an *extensible extension*, no different than the many other extensible things in the editor.  After all, there's no real reason to believe that the editor provides every extensibility point that you could ever need, or that there isn't a need for extensions themselves to interoperate in ways that we didn't foresee.
+
+The spell checker is a great example of this.  If spell checking was built-in, it would (hopefully) have lots of extensibility points: plugging in custom dictionaries, being able to modify behavior depending on the type of file being edited, adding new spelling actions other than the default, etc.  So why should it be any different if an extension provides spell checking?
+
+The problem, essentially, comes down to **contracts**.  For the sake of simplicity, we'll just think of these as *types*.  We need a way for these extensions to agree on types, like `INaturalTextTag`, which means that they both need to essentially share an assembly.  Ideally, they'd also both be distributable via VSIX file, which precludes *actually sharing installed assemblies*, to a degree, since you don't get control over where your assemblies end up on disk. 
+
+## Sharing type definitions
+
+In the product itself, we've shared out some definition assemblies that anyone can add a reference to and use.  The various built-in `ITag` types, for example, are all well-known, so any extension can provide its own outlining logic, or errors/squiggles, or syntax highlighting.
+
+The reason this works without requiring every extension to ship a copy of the editor definition assemblies is that these assemblies are essentially already loaded by the time your extension is loaded (more correctly, Visual Studio knows where to find them when it comes time to load them).  Go go magic managed code and all that.
+
+## Binding paths
+
+One of the features of Visual Studio that I've used previously to work around issues with loading custom tag types (see the [last issue on this page](http://blogs.msdn.com/vsxteam/archive/2009/10/15/visual-studio-2010-sdk-beta-2-readme.aspx)) is actually a much more generally useful way of adding a directory to the list of paths that Visual Studio considers when looking for assemblies to load (the BindingPaths registry key).  This fixes the issue of custom tag types, as it makes it so the MEF component loader can find the assembly to load for the type information it has saved in the component model cache.
+
+The issue of sharing definition assemblies is effectively the same issue, then.
+
+When you think of assembly sharing, there are basically two steps:
+
+ 1. The assembly needs to be available at **build time**, so you can compile your extension with the correct type references.
+ 1. The assembly needs to be available at **run time**, so you can load your extension that references these types.
+
+We usually conflate the two, but they truly are distinct.
+
+## Overall workflow
+
+So the workflow here is fairly simple:
+
+First, you need the physical definition assembly as a reference to build against.  This may mean building and checking in a version of the assembly to your source control, or taking advantage of something like git's submodule support to link to the live source from which the definition assembly is built.  Also, you want to be sure to *not* include that definition assembly in your VSIX.  It may not actually be hugely problematic if you do (I never really tested this out), but you certainly won't need it.
+
+Then, you create a reference from your VSIX to the VSIX you are depending on.  In the `.vsixmanifest` designer this is fairly simple; in the `References` section, simply click the `Add Reference` button and add the information you need (if you have the extension already installed, it'll let you select it instead of typing in the name/ID manually).  The only tricky part is picking the min/max version number.  For the spell checker extension, I'm softly guaranteeing that I won't update the definition assemblies at least until the next major version number (3.0), so I'd use 2.999 as the max version number.  Picking an existing minor version number as the max would not be a great idea, since I update these fairly frequently (five times or so last Friday, during a bug bash at work).
+
+So now, when the user wants to install your VSIX, he has to first install whatever it depends on (I hope this becomes a more automatic feature in the future, instead of requiring the user to manually install dependencies).  That means that, assuming the dependencies play nicely with binding paths, your extension can depend on the types it needs be available to it at runtime.
+
+As of now, I don't know of any extensions on the gallery that actually extend the spell checker, though I do know of one person who was working on it, as he was the motivation for figuring out how to do all this.  I have heard questions, like [this tweet from Jared Parsons](http://twitter.com/jaredpar/status/12355942774) about wanting to have a per-project dictionary, which would be well served by an extension that would keep a per-project dictionary file and ensure it is added and updated in source control (for Jared's or my sake, TFS or git, depending on what we're working on).
+
+If you are interested in creating an extension to the spell checker or creating your own extensible extension, feel free to ask me for help.  I'm very interested to see what, if anything, people do in this space, especially since one of my hopes for tagging is that there would be some amount of shared user-generated tag types for everyone to party on.

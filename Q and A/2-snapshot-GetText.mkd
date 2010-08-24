@@ -1,0 +1,60 @@
+<!-- Q&A: ITextSnapshot.GetText() -->
+
+*(This is part of the [Q&A Series](http://blogs.msdn.com/b/noahric/archive/tags/q_2600_amp_3b00_a/))*
+
+This question comes from Cameron Peters, from the [previous Q&A on read-only regions](http://blogs.msdn.com/b/noahric/archive/2010/05/04/q-a-read-only-regions.aspx):
+
+> How expensive, relatively is it to call Snapshot.GetText? I have a classifier/tagger that works well with small files (under 100K), but which bogs down as the file goes beyond that, and I'm wondering if my generous use of GetText() could be part of the problem.  Many of the sample classifiers (on which I based my work), operate this way.  For instance, the SmartTag Walkthrough at http://msdn.microsoft.com/en-us/library/ee334190.aspx uses this line of code in OnLayoutChanged():<br/>
+> `if (!snapshot.GetText().ToLower().Equals(e.OldSnapshot.GetText().ToLower()))`</br>
+> ...is there a better way to do this sort of thing?
+
+The answer is that you should **never use this method**.  Really.  Jack, our architect, wanted to remove the method sometime after the VS2010 CTP, but we didn't want to break people already writing extensions against the editor.  Oh, and we had an editor to finish :)
+
+I'll follow up to get the sample changed so that we aren't essentially telling people to use a method that we're telling people not to use, so sorry about that.
+
+## The longer story: specificity
+
+The more drawn out answer is that there are extremely few cases where it is a good idea to evaluate* the entire buffer in one go.  You can nearly always be more exacting about exactly which parts of the buffer you are curious about.
+
+*I do mean "evaluate".  The buffer is stored in a piece tree, and sticking it all in a single string involves the cost of walking the tree and re-assembling the string.  Not only is there a performance penalty from re-constituting the string, but a string that can hold the entire buffer also needs to be allocated in one sequential chunk, so you risk an OutOfMemoryException when contiguous free memory is getting tiny. 
+
+This sample is an interesting one.  I imagine it was written this way for simplicity, as the "real" solution that I would use is slightly more complex.  Well, the solution I imagine the sample will change to is just to remove that code, but if you really wanted to a) handle layout events but b) ignore layouts caused by just case changes, I would:
+
+1. In addition to listening for layout changes, listen to `ITextBuffer.Changed` events.
+1. These events are delivered with new/old spans and text.  To be the best editor citizen you can:
+  1. Compare the span length first (since the string properties aren't created until evaluated),  1. Then compare the strings (ignore case) only if the lengths match.
+  1. To be a *really* good citizen, consider changes larger than some size to always be "real" changes.
+  1. Never *ever* write `ToLower().Equals()`, preferring to use the ignore case comparison routine (so you don't create another copy of the entire string).
+  1. Even better &ndash; only look at changes that intersect spans you care about. 
+1. When the layout change event comes around, see if there were any "real" changes, and only event over those changes.
+1. Also, in the layout changed handler, only respond to changes in the `NewOrReformattedLines` (or `NewOrReformattedSpans`) collection.
+
+Of these, #2.4, #3, and #4 are all about being minimal and only doing work when absolutely necessary.  #2.1-3 are more general performance considerations that are probably less important.
+
+## What about a Span from 0 to `ITextSnapshot.Length`?
+
+You'll see this oftentimes when raising changed events from taggers or classifiers.  I do it in a few of my extensions and samples.
+
+The answer here is a bit less well-defined.  The editor components that consume taggers and classifiers tend to handle these situations without issue because they only look at the parts of the changed event that they care about, like what's visible on the screen currently.  This isn't true of *all* editor components though; the outlining manager, for example, has to keep track of the entire file all the time, to handle the state of collapsed regions.
+
+In general, like most performance issues, the answer is a) wait until you actually know you have a problem, and then b) measure to figure out exactly what is causing the problem.  You may find out that something that you *expected* to be expensive really isn't, or something you expected to be really quick really is.  For me, coming from a mostly C++ development experience in college, I'm still surprised every once in awhile that various complicated-looking pieces of managed code *aren't* performance problems, and it's hard to break the habit of prematurely optimizing those.
+
+## ...but isn't your earlier advice premature optimization?
+
+Erg.  Yeah, sorta.  You can look at advice like this in two ways.
+
+First, you can consider only the practical outcome.  Editor extensions that handle changes in a minimal way will very likely be more efficient than extensions that don't, except in the case that *determining* the minimal set of changes is more expensive than handling things more broadly (which is essentially why I have extensions/samples that create spans from `[0, ITextSnapshot.Length)`).  Likewise, it's very possible that these extensions would have been fast enough with the simpler, broader approach.
+
+The other way is to think of it as a qualitatively different way of writing the extension.  In some way, it's like the difference between "polling" (is the data there yet? is the data there yet?) and listening for events.  One may be faster than the other in some circumstances, but the point is that you understand the data flow differently depending on the approach.  In the above example, handling buffer change events directly, to see which should affect a given smart tag, is a different way of thinking about the underlying problem of handling user-generated changes than trying to figure out that information at layout time.
+
+Of course, the first is more practical, so that's the one you should probably concentrate on :)  This article was really just for entertainment, then, unless you are using `ITextSnapshot.GetText()` and it is causing performance problems.
+
+## One last thought: parsers
+
+The place where this breaks down is when you have a parser that only works over full files, so even if you just insert a single character on a single line, it still needs to reparse the world.
+
+I know that "use a different parser" isn't really the most tractable answer, so the best you can do in that case is to throttle how often you parse.  That's an answer for a whole different post, though, so stay tuned to the blog if you are interested about that type of problem.
+
+## More questions?
+
+If anyone has questions like this, you can always post them on the [Editor forum on MSDN](http://social.msdn.microsoft.com/Forums/en-US/vseditor), and they'll get answered.  I'll answer questions like this one on this blog, though the answers will always be long and rambling, so use the forums if you appreciate brevity.

@@ -40,3 +40,23 @@ So now, when the user wants to install your VSIX, he has to first install whatev
 As of now, I don't know of any extensions on the gallery that actually extend the spell checker, though I do know of one person who was working on it, as he was the motivation for figuring out how to do all this.  I have heard questions, like [this tweet from Jared Parsons](http://twitter.com/jaredpar/status/12355942774) about wanting to have a per-project dictionary, which would be well served by an extension that would keep a per-project dictionary file and ensure it is added and updated in source control (for Jared's or my sake, TFS or git, depending on what we're working on).
 
 If you are interested in creating an extension to the spell checker or creating your own extensible extension, feel free to ask me for help.  I'm very interested to see what, if anything, people do in this space, especially since one of my hopes for tagging is that there would be some amount of shared user-generated tag types for everyone to party on.
+
+### One remaining question
+
+The one thing that remains unanswered for me is: what if you want to light up a feature in another extension but not require it always be installed?  Specifically, the scenario is this:
+
+If you have Markdown Mode installed and the spell checker installed at the same time, Markdown Mode should enable markdown-specific natural text parsing logic.  If you have the spell checker installed by itself, it doesn't have any specific knowledge of markdown files.  If you have the Markdown Mode extension installed by itself, it doesn't do any spell checking on its own.
+
+The trick is that I don't want the Markdown Mode extension to *require* the spell checker extension be installed, I just want it get specific spell checking when both extensions are installed on the same machine.
+
+I haven't really figured this one out yet.  I don't know if Markdown Mode can get away with not shipping the spell checker definition assembly, which is likely half the fault of how MEF is set up in Visual Studio and half the fault of how the editor handles failures.
+
+The issue is that the `TagType` attribute on tagger providers doesn't use exact matching of types.  If a tagger provider says it produces an `ISpecificTag`, and someone creates an aggregator for `IBaseTag` from which `ISpecificTag` inherits, the `ISpecificTag` tagger provider will created and just work through the magic of covariance.
+
+To do this, though, the logic that matches up taggers needs the actual type hierarchy of `ISpecificTag` to see if it is assignable to an `IBaseTag` reference.  In the case of the spell checker, with `INaturalTextTag`, it needs to know what that type is.
+
+The answer here is really that Markdown Mode's natural text tagger *doesn't care*; if the spell checker isn't around and so it's natural text tag's hierarchy isn't available, it just doesn't want to be loaded.
+
+The problem is that when the tag aggregator is matching up tag types, it will try to evaluate the type of the MarkdownMode tagger provider, and it doesn't expect or guard against the exception that will be thrown when the VS MEF-hosting logic can't figure out what type to load.  If it did (just catch the exception and move on), then we'd get the effect we're looking for.
+
+So, the only obvious workaround seems to be to include a copy of the definition assembly in Markdown Mode (and add it to the binding path), though that may introduce other problems down the line.  Hopefully the issue in the tag aggregator can be dealt with, and so this problem won't be *permanent*, but it won't be fixed anytime in the immediate future.

@@ -1,0 +1,49 @@
+<!-- Spell Checker Update - Perf bug on large C# files -->
+
+I pushed an update (v2.22) to the [Spell Checker extension](http://visualstudiogallery.msdn.microsoft.com/7c8341f1-ebac-40c8-92c2-476db8d523ce) just a little bit ago which fixes a pretty major and annoying performance issue with large C# files.  I say "fixes", but it's really just a big work around, courtesy Michael (who will post an entry on [his blog](http://blogs.msdn.com/b/micleh/) **any day now**.  It's interesting enough that I thought I'd share a little bit of information about performance, as it applies to this extension.
+
+For reference, if you haven't seen it, the bug manifests itself by pegging your CPU if you open a C# file of, say, over 1000 lines.  It isn't a hard value like that, being a function of how many multi-line statements (comments, strings, etc.) you have in the file, but I've yet to hit it on a file smaller than 1000 lines.
+
+First, a little digression to talk about how the extension works:
+
+### Somewhat greedy spell checking
+
+The spell checker's overall loop is fairly simple:
+
+1. When a file is opened, scan the entire buffer for spelling mistakes.  This puts the entire buffer into a known state.
+1. When text is changed, mark lines that contain those changes as dirty.
+1. After about 500ms of idle time (e.g. not during fast typing), scan the dirty lines again for spelling mistakes.
+
+The one big design decision made here is that the spell checker is greedy; it doesn't just spell check what is visible, which would have actually escaped the bug that caused this performance issue on large C# files, as long as you weren't zoomed out or didn't have a really tall monitor.  I wasn't actually the one that made this decision (Roman wrote all of the original code for this extension), but doing it this way means that there are a few other useful features that could be written: showing spelling errors in the error list, displaying marks next to the scrollbar for all spelling errors in the file, etc.  I'm undecided which approach is simpler, as the state management of being greedy is somewhat complicated.
+
+Anyways, because of this decision and because certain parts of spell checking are really expensive, there is another important thing to consider:
+
+### Foreground (UI) and background threads
+
+To get around the expense of doing things greedily, the spell checker runs as much as it can on a background thread, such as the actual spell checking logic.  One interesting thing that can't run on the UI thread is the code that determines where the natural text is, meaning comments and strings in code files.  To do this, this extension consumes the same classification information (essentially syntax highlighting) that the editor uses to color text in the view.  Unfortunately, the new classification interfaces don't really define what it means to be called on a background thread.  Even if they did, though, it wouldn't matter for the built-in languages, as *nearly every (public) API in VS needs to be accessed on the UI thread*.  There are exceptions, but they are limited and not entirely well defined in all cases.
+
+So the extension does what it can, but it has to block in small chunks on the UI thread to ask for classification information before spinning of a background thread to go check spellings on those lines.
+
+### Put them together, and what do you get?
+
+The issue with large C# files was actually due to trying to figure out what parts of the file are comments and strings and not the spell checking itself.  As it turns out, the C# colorizer, wrapped by editor shims in order to produce classification information, had an assumption that there was really only one component consuming that information, which is *a perfectly valid assumption* in the pre-VS2010 world.  Moreover, that interface is still the pre-VS2010 `IVsColorizer`, so the issue is basically that the editor is breaking an unspecified/assumed contract of the old behavior.
+
+Luckily, on not-too-huge files, a cache in the C# colorizer would cover up the issue.  However, the cache only worked for so many lines, so once you have more than 256 lines of multi-line statements, you'd end up in a nasty loop where (simplified):
+
+1. The spell checker asks for classification information over the entire file.
+2. All the multi-line statements in the file are marked as dirty by the C# colorizer and it sends out an event to inform consumers.
+3. The spell checker goes back through those lines and asks for classification information again (if you'd commented-out or commented-in a section of code, it needs to check those lines again).
+4. All the multi-line statements in those areas are marked as dirty.
+5. Repeat at step #3.
+
+### Work around?
+
+Not a simple one, unfortunately: Michael hand-wrote a [simplified C# parser](http://github.com/NoahRic/Spellchecker/blob/master/SpellChecker.Implementation/NaturalTextTaggers/CSharp/CSharpCommentTextTagger.cs) that understands comments, strings, and everything else.  It's a rather elegant and clean piece of code, which is pretty representative of Michael's coding style, but the most elegant solution would have been to not have to write a parser :)  One of the big promises of the new editor is that it exposes a lot of this information specifically so people don't have to do things like this.
+
+### (Extension authors) What should I do to avoid this?
+
+It's not something to be terribly worried about, unless you have an extension doing something similar: asking to classify the entire file and responding to classification changed events by re-classifying.  If you are just consuming classification information on a lazy basis (e.g. on a line when it changes), you shouldn't run into this.
+
+The underlying bug in that colorizer has been fixed in our internal builds of the product, so it'll certainly make it in to future versions, but it won't make it into QFE form or anything like that.  After all, the only known repro is with (a now defunct version of) this spell checker.
+
+If you do run into the issue, though, please let us know, and we can try to help you out with a workaround.

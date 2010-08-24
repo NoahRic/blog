@@ -1,0 +1,83 @@
+<!-- Editor fundamentals: Push vs. Pull -->
+
+(This is a new series I plan to write in occasionally, where I'll talk more generally about some of the design fundamentals of the editor and best practices for extensions)
+
+One of the things I learned early on, probably incorrectly, is that you can look at how components communicate and basically split the common patterns into two camps.
+
+In the first, one of the components pushes data out; it knows when it has it, and it informs everyone who wants to know (by registration or just *a priori* relationships) about said data.  This is the (roughly) the model of text messaging, where you have messages pushed out to your phone when they are sent and you push them out to other phones when you send them.
+
+In the other, components ask for data when they need it; they know when they need to consume it, and know when they need to ask.  This is the model we are all used to when browsing the web: when you want information, you go out and fetch it.  The internet doesn't *push* data to you, for the most part.
+
+Among the latter camp, there also seems to be two primary splits; the first is "polling", which exemplifies just how annoying the English language can be.  It's pronounced exactly the same way, and the concept actually always mixes with the more general idea of "pulling" data in my brain, but it does have a specific meaning when I think about it.  In polling, the person asks for data over and over again, not necessarily knowing when it changed.  HTTP is mostly polling, though does support various caching-related headers to at least reduce the amount of polling you'd need to do to stay up-to-date with a page.
+
+Instead of that, there is also the event-driven route, where the client doesn't push the actual data, but just notifications that the data may be different in some way or the actual updated data.
+
+I'm sure there are real terms for all these, and that I've horribly misconstrued some important points.  My apologies for that.
+
+This simplified view of the world, though, is enough for me to talk about what I really wanted to talk about, and that is this:
+
+The old editor was a **push** world.  The new editor is a **pull/event** world.
+
+## Old editor: central storage
+
+If you've used markers in the old editor or read the article I posted [comparing markers in VS2008 to tracking spans in VS2010](http://blogs.msdn.com/noahric/archive/2009/06/06/editor-perf-markers-vs-tracking-spans.aspx), you'll have a pretty good idea of what to expect of the various services you'd get in the old interfaces.
+
+With only a few exceptions, the editor acts like a large data repository.  Clients, usually language services, push things like markers, outlining regions, and completion items (intellisense) to the editor.  In terms of "extension points" in the old editor, mostly features that you imagine languages providing, nearly every one was some piece of information being pushed into the editor, to store and (at least partially) own.
+
+The furthest one from this would be colorization, where the editor requests that information on-demand, but even that has a central storage component, in that languages can request line state be kept by the editor for each line in the file.
+
+The API for these extension points is fairly natural and simple.  Markers are something of a one-thing-fits-all, where markers give you the ability to track changes, place adornments like breakpoints, put glyphs in the indicator margin, mark regions as read-only, and provide help and tooltips.  You figure out what things you want to be in the editor, and then you push it out to the editor.  It'll stay put until the text it marks is deleted, essentially, as the editor tracks how it moves and when it should go away.
+
+#### The downsides
+
+For many of these, then, the editor was just a glorified list, with custom collection APIs (adding, removing, iterating) and some event-like capabilities like marker clients, which are informed when markers are moved or invalidated.  But it isn't a very specialized list, being that it needs to serve fairly general needs, so the APIs are neither consistent nor very rich.
+
+One of the interesting patterns that cropped up, looking at the usage of these APIs, is that many languages tended to be storing copies of the same data.  Take outlining, for example.  Many languages created markers for outlining regions, which is not required as part of the outlining API, so they could track the way the outlining regions changed through buffer edits.  Others kept custom collections that more closely matched their language models, so it was easier to update that list as those models changed.  To update the editor outlining regions, then, they would iterate over their own collections and the editor's regions simultaneously, noting which regions needed to be added or removed.  It wasn't uncommon for some single piece of information, like the extent of an outlining region, to be stored in three or four different places.
+
+And the last issue was that there wasn't really an opportunity for lazily computing this information, as there was no hint that the editor needed to evaluate the information in a specific region of the file.  Language services were generally good enough to do work on idle as to not block the user, but there wasn't a good opportunity to avoid work that the user may not care about *just now*.  That sounds vague, I know, but it should make more sense after explaining how the new editor does it.
+
+I'm not really sure that these issues were unavoidable, but some of them seem inherent stumbling blocks of the push approach.  By choosing between (a) forcing your data store into a component you have no design control over or (b) duplicating your data twice, you're probably going to pay in either resource usage (CPU time or memory) or difficulty in accomplishing the task at hand.
+
+## New editor: decentralization
+
+The model in the new editor is that the only thing necessarily stored in the "editor" is the content of the text buffers.  Nearly everything else is cache, or only as much state as is needed to be coherent.
+
+Text markers, like visible breakpoints, are a good example of how this works.  Clients implement an `ITagger<ITextMarkerTag>`, which they list as being available to the editor with a MEF-exported `ITaggerProvider`.  The provision of the tagger is on-demand, when the editor determines that the tagger provider matches the declared content type and tag type of a buffer and the component requesting tags (usually some component that is created per-text view, also matching against content type and text view roles).
+
+A tagger has a method, `GetTags`, and an event, `TagsChanged`.  When something in the editor wants to know about text markers in a given area, they'll call `GetTags`, and then assume that the information is valid until the buffer changes around that area or until the tagger raises the `TagsChanged` event.
+
+*(The call to `GetTags` is indirect, through an `ITagAggregator<ITextMarkerTag>`, but that's incidental to the point.)*
+
+Since most view-level components only ask about lines as they show up or are dirtied in the view (I'll talk more about this in the next installment of this series), the net effect is that the tagger is only asked for areas of the buffer when the user needs that information.
+
+A lot of extension points are accessible through tagging, somewhat similar to markers, in a sense.  Some do have a bit of extra state that the editor does manage, such as outlining regions.  These are provided through tagging, but the actual collapsed state is stored in the editor, since it is managed across multiple providers and the state can be different in any number of text views over the same buffer.  But that is (literally) view-specific state, and the stuff we consider buffer-level model, the collaps*ible* regions themselves, are owned by the taggers that provide them.
+
+There are a few other upsides to this approach, relative to the push model:
+
+API like this lends itself to lazy computation, as the extension knows *exactly when the data is needed*.  As an example, a few people internally have played around with adornments to replace things that represent colors in source files (hex color values in CSS, `Colors` and `Brushes` in WPF, things like that).  Because these tend to be self-evident, these extensions don't need to walk the file or even listen to buffer changes.  All they do is respond for requests for information as they are received by scanning the text and seeing if they have any applicable information.
+
+You could accomplish this in a hacky way with the old editor markers, say by tracking what parts of the view are visible at any point in time and only pushing out information that matches that part of the view.  It would be ugly, though, and unnatural.
+
+Also, you don't need to pay to store everything twice if you decide to keep data in a format better fitting your own needs.  While the editor may keep a cache of some things, it generally isn't substantial.  The most amount of cached information is the view, which keeps visible lines around (for as long as they are visible), and visible adornments, which you can think of as the temporary manifestations of these underlying data components.
+
+#### The downsides
+
+There are downsides here, as well.  No silver bullet or magical solution.
+
+First, designing components in this way seems to come less naturally to people.  Maybe that's just because people are used to the push model of providing data, or maybe it is really because most people's mental model of data flow doesn't work like this.  It's especially common for people providing adornments to treat it as if you need to *push* the adornment out to the view (instead of *providing* the adornment when requested), especially since the API actively lends itself to this (with methods like `AddAdornment` and `RemoveAdornment` on `IAdornmentLayer`), but I see that entirely as a problem for the editor to fix by providing more obvious APIs, better documentation, and a larger body of samples and templates.  Adornments are an especially confusing topic, which is why I'm going to cover that specifically in the next part of this series.
+
+Second, some extensions don't care about making their own data structures, and the overhead of doing so makes things less simple.  We've tried to mitigate this for tagging, unfortunately without being obvious about it, by providing a `SimpleTagger<T>` type.  It implements the tagging interface, so you can return it from an `ITaggerProvider`, and you can use it like a simple list.  That's still more overhead (and certainly less obvious) than an API that forces/provides a simple Add/Remove push model.
+
+Third, things like `GetTags` tend to be moderately chatty, though not necessarily more so than the old interfaces did, since there was a decent amount of back and forth around enumerating markers/outlining regions/etc. and adding/removing them to stay in sync with external lists.  For these interfaces, the chattiness is that the editor doesn't do much caching or sharing at the tag aggregation level, so each consumer gets its own `ITagAggregator`, and each call for tags from each consumer results in a call to `GetTags`.  As such, *expensive* lazy computation without any sort of caching at the tagger level isn't a great idea, as you'll pay that cost per-consumer instead of per-update.  This is something we have ideas for improving, but we're mostly waiting to see if it will become a problem in practice.
+
+### Specifics to generalizations
+
+I'm not sure how much of this applies to the general issue of push/pull and poll/event.  After working with it for a few years, I have to say I'm pretty happy with the general outcome, and the problems that we *aren't* having.
+
+The biggest issues we are having are essentially from the confusion department.  Interfaces are non-obvious, documentation is spotty, samples are sparse, editor bloggers are about as bright as a turnip (hey! that's not nice), MEF is a bit too far on the magical side (read: hard to debug), certain things cry out for better extension points, and the list goes on and on.
+
+The only thing I can really say to this is that I think that developing extensible applications really has to be considered an ongoing enterprise.  I don't think it would be really possible to, in the 2-4 years it took to build the new editor (depending on how you count), create an editor with feature parity with the one that has been in usage for at least the last decade *and* design a perfect extensibility layer.  I'd also like to think that *something* is usually better than nothing, though there is that gigantic rat's nest of compatibility.
+
+(You can't see me right now, but when I hear or even type the word "compatibility", I stick my fingers and yell LA LA LA LA until the thought goes away)
+
+I do think one of the things that helped us do as well as we did is that the extensibility API we designed wasn't really the "extensibility" API; it was *the* API for the editor, which happens to be publicly accessible.  I'll continue to sing the praises of that story until the day men in suits come to collect me.

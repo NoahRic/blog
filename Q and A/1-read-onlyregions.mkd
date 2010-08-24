@@ -1,0 +1,64 @@
+<!-- Q&A: Read-only regions -->
+
+This question was asked recently on the (internal) editor discussion alias:
+
+> Is it at all possible to make parts of the text buffer read-only? Could I, for example, mark certain spans as not modifiable, so that the user wouldn't be able to change their contents?
+
+The short answer is *yes*; in fact, marking regions of the buffer as read-only is the primary model of controlling the read-only-ness of the buffer, and doing something like setting the entire buffer read-only is a special case of that (marking the region that covers the entire buffer as read-only).
+
+## The general model
+
+The API for creating read-only regions looks very much like creating regular edits.  The entry point is to create a [read-only region edit][IReadOnlyRegionEdit] (`ITextBuffer.CreateReadOnlyRegionEdit`), which is what you use to make the actual edits of adding or removing read-only regions.  To answer the original question, here's an example of how to make an entire buffer read-only:
+
+<pre style='color:#000020;background:#f6f8ff;'><code>ITextBuffer textBuffer;</span>
+IReadOnlyRegion region<span style='color:#406080; '>;</span>
+
+<span style='color:#200080; font-weight:bold; '>using</span> <span style='color:#308080; '>(</span>IReadOnlyRegionEdit edit <span style='color:#308080; '>=</span> textBuffer<span style='color:#308080; '>.</span>CreateReadOnlyRegionEdit<span style='color:#308080; '>(</span><span style='color:#308080; '>)</span><span style='color:#308080; '>)</span>
+<span style='color:#406080; '>{</span>
+    region <span style='color:#308080; '>=</span> edit<span style='color:#308080; '>.</span>CreateReadOnlyRegion<span style='color:#308080; '>(</span><span style='color:#200080; font-weight:bold; '>new</span> Span<span style='color:#308080; '>(</span><span style='color:#008c00; '>0</span><span style='color:#308080; '>,</span> edit<span style='color:#308080; '>.</span>Snapshot<span style='color:#308080; '>.</span>Length<span style='color:#308080; '>)</span><span style='color:#308080; '>)</span><span style='color:#406080; '>;</span>
+    edit<span style='color:#308080; '>.</span>Apply<span style='color:#308080; '>(</span><span style='color:#308080; '>)</span><span style='color:#406080; '>;</span>
+<span style='color:#406080; '>}</span>
+</code></pre>
+
+When you create (add) a region, you get back a handle to the region, which you'll need to hold on to if you ever want to remove it again, like this:
+
+<pre style='color:#000020;background:#f6f8ff;'><code><span style='color:#200080; font-weight:bold; '>using</span> <span style='color:#308080; '>(</span>IReadOnlyRegionEdit edit <span style='color:#308080; '>=</span> textBuffer<span style='color:#308080; '>.</span>CreateReadOnlyRegionEdit<span style='color:#308080; '>(</span><span style='color:#308080; '>)</span><span style='color:#308080; '>)</span>
+<span style='color:#406080; '>{</span>
+    edit<span style='color:#308080; '>.</span>RemoveReadOnlyRegion<span style='color:#308080; '>(</span>region<span style='color:#308080; '>)</span><span style='color:#406080; '>;</span>
+    edit<span style='color:#308080; '>.</span>Apply<span style='color:#308080; '>(</span><span style='color:#308080; '>)</span><span style='color:#406080; '>;</span>
+<span style='color:#406080; '>}</span>
+</code></pre>
+
+In case you missed it, the (intentional) side-effect of this design is that **only the "owner" who creates a read-only region can remove that region**.  This means that one person can mark parts of or the entire buffer read-only, thus preventing anyone else from editing it (as that person expects), without any way for other people to pull that protection out from under the original owner's proverbial feet.
+
+## To snapshot or not to snapshot
+
+Sometime in the last year, we got reports that read-only regions were causing performance issues in general C# debugger stepping scenarios.
+
+I don't remember the exact details, but the gist is that the C# language service was setting and unsetting read-only-ness on every step.  There wasn't a simple way to determine that it was a "step" and not just a blanket "start running the debugger again", so it was a rather costly expense for what was essentially too short-lived for the user to even notice (or at least shouldn't be noticeable, assuming things are nice and fast).
+
+At the time, generating new read-only regions was slow because each read-only region edit create a new `ITextSnapshot` for that buffer, with similar costs to making an edit.  In this case, it was setting read-only regions on more than a single file, so I think it was more like making an edit on lots of files simultaneously.
+
+The question, at the time, was, "why does the editor need to generate a new snapshot when read-only regions change?"  It's an interesting design choice, to say the least.  As I understand it (I wasn't on the team at the time, so this is hearsay), people thought there would be utility in being able to ask, "On snapshot `foo`, was region `bar` read-only?", to see what the read-only state of the buffer was historically, much like how snapshots let you look at the buffer contents historically.
+
+As it turns out, though, that's not especially useful information to have.  There is some symmetry there with asking what edits happened on old snapshots (technically versions), but there's isn't anything you can really *do* with that information.  You can only edit the current version of the buffer, so the only real question people need to ask is, "On **buffer** `foo`, was region `bar` read-only?".
+
+So, Jack changed read-only regions so that they are conceptually and literally buffer-specific instead of snapshot-specific, and most of that performance issue wasn't anymore.  There were actually other changes made, in the language service, that made this change mostly unnecessary for that specific scenario, but it was still the change that we wanted to make.
+
+## Dynamic read-only regions
+
+The other late entry to the game was the concept of dynamic read-only regions.  This one was written by Sergei, at least in part to support (VS2008 and previous) markers, which can prevent edits over the span of text they cover.
+
+These regions are inserted and removed just like regular ol' read-only regions, with one extra argument in [`CreateDynamicReadOnlyRegion`][CreateDynamicReadOnlyRegion]: a [`DynamicReadOnlyRegionQuery`][DynamicReadOnlyRegionQuery].  The contract for that callback is fairly simple; it's told whether or not the query ("is this read-only?") is happening as part of an edit or just as a simple request, and it returns `true` or `false`.
+
+One reason for including information about whether the request is an edit is to use this feature for something like source code integration's check out on edit feature.  You could imagine, for files that aren't yet checked-out, putting a dynamic read-only region over the file, returning `true` when asked about read-only-ness for non-edits, and then attempt to perform the checkout on edit.
+
+This also leads to another guiding principle of read-only regions: if you need to make an edit, *never ask about read-only regions before making the edit*.  Instead, try to make the edit and handle failure gracefully (the various methods on `ITextEdit` return whether or not that part of the edit succeeded).  There are methods for asking about which spans in a buffer/snapshot are read-only, but you shouldn't use these if you intend to make an edit with the knowledge.  As the saying goes, never ask permission, as for forgiveness (or, in the editor's case, be prepared to deal with the punishment).
+
+## More questions?
+
+If anyone has questions like this, you can always post them on the [Editor forum on MSDN](http://social.msdn.microsoft.com/Forums/en-US/vseditor), and they'll get answered.  I'll answer questions like this one on this blog, though the answers will always be long and rambling, so use the forums if you appreciate brevity.
+
+ [IReadOnlyRegionEdit]:http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.ireadonlyregionedit_members.aspx
+ [CreateDynamicReadOnlyRegion]:http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.ireadonlyregionedit.createdynamicreadonlyregion.aspx
+ [DynamicReadOnlyRegionQuery]:http://msdn.microsoft.com/en-us/library/microsoft.visualstudio.text.dynamicreadonlyregionquery.aspx

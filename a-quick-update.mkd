@@ -1,0 +1,9 @@
+<!-- Title: A quick update -->
+
+Sorry for (another) long hiatus, again.  I've been pretty busy, the last few weeks especially, working on fixing bugs and some interesting internal projects that may make their way to the public eye soon-ish (like in the next few months soon-ish, which probably isn't that soon).  
+
+In the interim, I wanted to note that I just pushed out an updated version (2.2) of [Go To Definition](http://visualstudiogallery.msdn.microsoft.com/en-us/4b286b9c-4dd5-416b-b143-e31d36dc622b).  The notable part of the change is that it moves the handling to mouse-up instead of mouse-down, meaning that it should play nicely now with word selection logic and drag/drop.  Source changes, as always, can be [viewed on github](http://github.com/NoahRic/GoToDef/commit/5939a2946fe31f5f11f924816902e16be8f4673e).
+
+Also, if you are currently using VS2010 RTM and are finding issues, please [file bugs on Connect](https://connect.microsoft.com/VisualStudio).  A lot of the bugs I'm fixing right now are filed on Connect, so it's your chance to find something in VS to get changed.  You can always email me directory, through this blog, but it'll be easier to track and get others to vote on issues that you've opened publicly through Connect.
+
+Finally, completely unrelated to work: if you aren't a Microsoft employee and you'd like to get an idea of some of the strangeness that goes on here, take a gander at [Bug Bash](http://www.bugbash.net/).  Microsoft employees should take a look, too, as long as they don't mind being reminded of some of the ridiculous-ities of work.

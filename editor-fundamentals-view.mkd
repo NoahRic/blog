@@ -1,0 +1,75 @@
+<!-- Editor fundamentals: Adornments, and working with the view -->
+
+Tagging along with the last editor fundamentals post on [the pull/event model][pull-model], today's article is essentially the application of that to handling **text-relative** adornments and, generally, working with the text view (`IWpfTextView`).
+
+## The adornment "manager"
+
+Within the editor, we use a fairly common pattern for structuring adornments.  There are essentially two components:
+
+First, you need a view creation listener (`IWpfTextViewCreationListener`), keyed off a `ContentType` and `TextViewRole`.  Most general adornment providers use "text" and `PredefinedTextViewRoles.Interactive`.  It's also handy to put your `AdornmentLayerDefinition` here, keeping all your MEF components in one place.
+
+Second, you have an adornment manager, for which there is no interface to implement or base class to inherit.  This will be your controller (in the Model-View-Controller sense), that controls adds adornments to the adornment layer when necessary.
+
+## Adding adornments to the layer
+
+The obvious way to deal with adornments is, unfortunately, not the simplest or best performing.  To understand how to handle this best, you have to step back from adornment API specifically and consider how the view works in general.
+
+Much like a text buffer is essentially some data (a `CurrentSnapshot`) and an event for when that data changes, a view is some data (specific to a certain `ITextSnapshot`) and an event for when that data changes (`LayoutChanged`).  There are other events in there, for when the viewport size changes or when horizontal scrolling happens, but we'll ignore those for now.
+
+Though it is easiest to imagine the view as an extremely tall list of lines inside a scrollable viewport, that effect is faked.  The view is only really *the lines that are currently visible*, which it transposes when scrolling and redraws when the buffer changes.
+
+Likewise, it is best to think about adornment layers in the same way.  Though you have an essentially infinite canvas, the adornment layer should only contain adornments that are either viewport-relative (e.g. an adornment that always shows up in the top-right corner of the editor, regardless of what text is visible) or text relative (e.g. the red breakpoint marker under pieces of text).  The former can essentially ignore layout completely, but the latter is intimately tied to layout.
+
+So, the obvious way to handle adornment layers is to figure out where all the adornments should go, regardless of where they appear in the file, and push them all onto the adornment layer.  The API is generally suggestive of this, as the adornment layer has `Add`/`Remove` events like any other collection.  However, there are two issues with using the API in this way: performance and, well, difficulty in making it work.
+
+For performance, the issue is the same reason why the view doesn't render every line in the file all the time.  If it did so, resources would be dedicated relative to the size of the file, meaning you'd have difficulty scaling as file size increased.  If you only need to scale to the viewport height, though, you'd have a reasonable upper bound (barring zooming out).  In the abstract, also, you'd know that you are only doing exactly as much work as you need, since the only purpose of adornments is for the user to see them, and the user can only see what's currently visible in the buffer.
+
+For correctness, you need to consider how text-relative adornments work.  Though you aren't required to *add* them in response to a layout, they will be *removed* for you if they (1) have a `VisualSpan` (an associated span of text) and (2) any part of that text is reformatted in the view, either because it was scrolled into view or because the underlying text was changed.  As such, you can't just throw these text-relative adornments into the view and assume they won't disappear at some point.  You *have* to listen for `LayoutChanged` anyway, so you may as well use that as the primary mechanism for adding adornments to the view.
+
+## Data sources
+
+Virtually all of the built-in adornment managers work by consuming tags, via an `[Import]`ed `IViewTagAggregatorFactoryService`.  This carries the normal benefits of tagging and fits into the same pattern as:
+
+`LayoutChanged` &rarr; Draw per line
+ 
+If use use a pattern like this for the tagging aspect, you'll get to share most of the complex parts of the code path (in draw per line):
+
+`TagsChanged` &rarr; Get intersecting lines &rarr; Clear adornments on the line &rarr; Draw per line
+
+When you structure it like this, your adornment manager truly is *just a controller*.  It acts as a pass-through for data coming from the tagger and finding an eventual home as an adornment in the adornment layer, but it doesn't store this information locally.
+
+## Layout + tagging
+
+Here's roughly what your `LayoutChanged` handler will look like:
+
+    for each line in e.NewOrReformattedLines
+        for each tag in tagAggregator.GetTags(line.ExtentAsMappingSpan)
+            create an adornment for the tag
+            add that adornment to the visual layer
+
+(Where either the inner loop or the body of the inner loop are best placed in a helper method, so they can be called on `TagsChanged` as well)
+
+The logic is fairly simple, and your manager is now acting more like a translator from a tag type to a visual.  Because you only respond to layout, you don't need to worry about adding unnecessary adornments for lines that aren't visible, and you don't need to worry about tracking buffer changes to update when text changes.
+
+Your `TagsChanged` handler will be similar:
+
+    for each tagSpan in e.Span.GetSpans(view.Textsnapshot)
+        for each line in view.TextViewLines.GetTextViewLinesIntersectingSpan(tagSpan)
+            remove adornments on that line
+            add new adornments on that line
+
+
+If you want to combine these two, you'd probably want to extract out a method for `DrawAdornmentsOnLine`.  At the very least, the code for creating an adornment from a tag and/or adding an adornment to the layer should be in a shared method.
+
+
+One last caveat: this pattern works best when your adornments don't span multiple lines.  If you read the previous code closely, you'll see that if an adornment spans multiple lines, you can end up removing/adding adornments more than once, depending on how the tag spans are placed.  If your adornments are *mostly* on single lines, it isn't something necessarily worth worrying about as there won't be other ill-effects of this method (you won't double-draw or skip drawing adornments).  If you do either know you have lots of multi-line adornments or have profiled it to see it's a performance issue, you'll want to do something a bit smarter about collecting lines into normalized spans and querying tags over those spans.  You could do that for the simple case anyway, but it's a little more complicated than is conducive for a blog post.
+
+## Other considerations
+
+An interesting consideration is how an adornment manager should behave around outlining.  The good news is that it is easy if you use tagging and operate over lines at a time instead of using spans, e.g. use the `NewOrReformattedLines` property on the `TextViewLayoutChangedEventArgs`, instead of `NewOrReformattedSpans`.  Just use the `ExtentAsMappingSpan` property on the line instead of using the regular `Extent`, as the example above shows.  The line's mapping span skips collapsed outlining regions, as well as any other type of adornment that is eliding text (there aren't others in the product, though extensions can provide their own).
+
+(This is also the reason why, if you go the normalization route that I mentioned just a second ago, you *still* want to walk each lines and normalize the information in the lines, rather than using the pre-normalized `NewOrReformattedSpans`.  If you do want to go this route, convert the mapping spans to snapshot spans on the `ITextView.TextSnapshot`, put them all in a list/enumeration of `SnapshotSpan`, combine the result in a `NormalizedSnapshotSpanCollection`, and iterate over that when calling `GetTags`.  Clear as mud, I know, but it gets to be somewhat second nature once you've written a couple of these.  Just remember that the `Normalized(Snapshot)SpanCollection` classes, methods, and static methods are a huge helper when working with collections of `(Snapshot)Span`s.
+
+On the other hand, if you do want to display adornments for text that is hidden, just switch back to `Extent`.  How you visualize that information will take some consideration, especially if your adornment really is underneath the text and not just an annotation in the vicinity of the text.
+
+ [pull-model]:http://blogs.msdn.com/b/noahric/archive/2010/07/08/editor-fundamentals-push-vs-pul.aspx

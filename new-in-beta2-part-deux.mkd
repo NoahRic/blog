@@ -1,0 +1,18 @@
+<!-- What's new for extenders in Beta 2? (part deux) -->
+
+Since the [last "What's new" post][whatsnew], I've remembered a few new things in Beta 2 that I missed the last time around.
+
+### 1 - `[Import] System.IServiceProvider`
+
+I actually wrote about this in passing in my post about [updating my extensions for Beta 2][updatedextensions].  If you take a look at the diff for my GoToDef extension, you'll see I got to [remove some ugly code][removecode], and [replace it][replacecode] with usage of the (imported) global service provider.  This should also replace usages of `Package.GetGlobalService` and the like, since that isn't safe to do in some situations: namely, if a package based off the Managed Package Framework (MPF) hasn't been sited yet.
+
+### 2 - `IUrlTag`
+
+Beta 2 re-introduced support for clickable URLs in the editor.  However, this isn't *just* an end-user feature; it also allows for extensions to provide their own URLs over arbitrary text in the editor.
+
+To do this, you'll be providing the editor with an `ITagger<IUrlTag>`; the span you tag will appear as the visible url (blue and underlined), and the tag requires that you specify a `System.Uri`.  This will also pick up the ctrl+click behavior (for opening the URL in VS) and ctrl+hover behavior (for showing the URL that clicking will navigate to).
+
+ [whatsnew]:http://blogs.msdn.com/noahric/archive/2009/11/04/what-s-new-for-extenders-in-beta-2.aspx
+ [updatedextensions]:http://blogs.msdn.com/noahric/archive/2009/10/20/updated-extensions-for-beta-2.aspx
+ [removecode]:http://github.com/NoahRic/GoToDef/commit/0c9974ecc5466ceeb0b38ae9d189572b7bc38135#L2R138
+ [replacecode]:http://github.com/NoahRic/GoToDef/commit/0c9974ecc5466ceeb0b38ae9d189572b7bc38135#L2L117

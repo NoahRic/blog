@@ -1,1 +1,1 @@
-These are source files for the posts on [my blog](http://blogs.msdn.com/noahric).  The source is written using vim and markdown.
+These are source files for the posts on [my blog](http://blogs.msdn.com/noahric).  The source is written in markdown, using the [markdown mode plugin](http://github.com/noahric/markdownmode) I wrote for Visual Studio.

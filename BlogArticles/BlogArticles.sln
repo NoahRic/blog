@@ -11,6 +11,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Published", "Published", "{
 		..\css-is-less.mkd = ..\css-is-less.mkd
 		..\disable-mouse-wheel-zoom.mkd = ..\disable-mouse-wheel-zoom.mkd
 		..\editor-fundamentals-pull.mkd = ..\editor-fundamentals-pull.mkd
+		..\editor-fundamentals-view.mkd = ..\editor-fundamentals-view.mkd
 		..\extending extensions.mkd = ..\extending extensions.mkd
 		..\gradient-selection.mkd = ..\gradient-selection.mkd
 		..\how-to-organize.mkd = ..\how-to-organize.mkd
@@ -26,6 +27,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Published", "Published", "{
 		..\new-in-the-RC.mkd = ..\new-in-the-RC.mkd
 		..\orcas-parity-extensions.mkd = ..\orcas-parity-extensions.mkd
 		..\ReleaseComObject.mkd = ..\ReleaseComObject.mkd
+		..\spellchecker-updates-michael.mkd = ..\spellchecker-updates-michael.mkd
 		..\spellchecker.mkd = ..\spellchecker.mkd
 		..\tab-indent-settings.mkd = ..\tab-indent-settings.mkd
 	EndProjectSection
@@ -37,8 +39,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UnPublished", "UnPublished", "{25F93B74-718A-4787-BFDA-7B64F94D2E55}"
 	ProjectSection(SolutionItems) = preProject
-		..\editor-fundamentals-view.mkd = ..\editor-fundamentals-view.mkd
-		spellchecker-updates-michael.mkd = spellchecker-updates-michael.mkd
 		you-are-not-your-code.mkd = you-are-not-your-code.mkd
 	EndProjectSection
 EndProject
